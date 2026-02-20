@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sintonía Fina - Palabra de Coherencia</title>
+    <style>
+        body {
+            background-color: #000000;
+            margin: 0;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+    </style>
+</head>
+<body>
+    <script>
+        let contextoAudio;
+        let osciladorPaz, osciladorMemoria, gananciaMaestra;
+        let sistemaActivo = false;
+
+        // FUNCIÓN PARA EMITIR LA PALABRA CLAVE
+        function avisarCoherencia() {
+            const mensaje = new SpeechSynthesisUtterance("COHERENCIA");
+            mensaje.lang = 'es-ES';
+            mensaje.rate = 0.8; // Voz profunda y pausada
+            mensaje.pitch = 1.0;
+            window.speechSynthesis.speak(mensaje);
+        }
+
+        async function iniciarSintonía() {
+            if (sistemaActivo) return;
+            sistemaActivo = true;
+
+            // ESPERA INICIAL EN SILENCIO
+            setTimeout(async () => {
+                contextoAudio = new (window.AudioContext || window.webkitAudioContext)();
+                
+                osciladorPaz = contextoAudio.createOscillator();
+                osciladorMemoria = contextoAudio.createOscillator();
+                gananciaMaestra = contextoAudio.createGain();
+
+                osciladorPaz.frequency.value = 432;
+                osciladorMemoria.frequency.value = 40;
+
+                gananciaMaestra.gain.setValueAtTime(0, contextoAudio.currentTime);
+                // RAMPA DE SEDA: 8 SEGUNDOS DE SUBIDA
+                gananciaMaestra.gain.linearRampToValueAtTime(0.5, contextoAudio.currentTime + 8);
+
+                osciladorPaz.connect(gananciaMaestra);
+                osciladorMemoria.connect(gananciaMaestra);
+                gananciaMaestra.connect(contextoAudio.destination);
+
+                osciladorPaz.start();
+                osciladorMemoria.start();
+
+                // AL TERMINAR LA RAMPA, EL SISTEMA AVISA LA COHERENCIA
+                setTimeout(() => {
+                    avisarCoherencia();
+                }, 8000);
+
+                // VIBRACIÓN HÁPTICA A 40Hz
+                setInterval(() => {
+                    if (sistemaActivo) window.navigator.vibrate(15);
+                }, 25);
+
+            }, 7000); 
+        }
+
+        // ACTIVACIÓN POR EL SENSOR DE MOVIMIENTO
+        window.addEventListener('devicemotion', (event) => {
+            let aceleracion = Math.abs(event.accelerationIncludingGravity.z);
+            if (aceleracion > 0.5 && !sistemaActivo) {
+                iniciarSintonía();
+            }
+        });
+
+        // WAKELOCK PARA EVITAR APAGADO
+        if ('wakeLock' in navigator) {
+            navigator.wakeLock.request('screen').catch(() => {});
+        }
+
+        // CIERRE SUAVE SI SE SEPARA DEL PECHO
+        window.addEventListener('deviceproximity', (event) => {
+            if (event.value > 0 && gananciaMaestra) {
+                gananciaMaestra.gain.setTargetAtTime(0, contextoAudio.currentTime, 0.5);
+                sistemaActivo = false;
+            }
+        });
+    </script>
+</body>
+</html>
