@@ -2,94 +2,125 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sintonía Fina - Palabra de Coherencia</title>
+    <title>SISTEMA ARMÓNICO - CONTROL TOTAL</title>
     <style>
         body {
             background-color: #000000;
-            margin: 0;
-            overflow: hidden;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
+            color: #FFFFFF;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            text-align: center;
+            padding: 20px;
         }
+        .contenedor-botones {
+            margin-top: 30px;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+        .btn {
+            padding: 25px 40px;
+            font-size: 1.5em;
+            font-weight: bold;
+            border: none;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .btn-iniciar { background-color: #2ECC71; color: white; }
+        .btn-parar { background-color: #E74C3C; color: white; }
+        .btn:active { transform: scale(0.95); }
+        
+        #panel-estado {
+            margin-top: 40px;
+            border: 2px solid #3498DB;
+            padding: 20px;
+            border-radius: 20px;
+            background-color: #1A1A1A;
+        }
+        .lectura { font-size: 1.2em; margin: 15px 0; color: #BDC3C7; }
+        .resaltado { color: #3498DB; font-weight: bold; }
     </style>
 </head>
 <body>
+
+    <h1>SISTEMA PARA MÓNICA</h1>
+    <p>SINTONÍA FINA Y REGENERACIÓN</p>
+
+    <div class="contenedor-botones">
+        <button class="btn btn-iniciar" onclick="iniciarExperiencia()">INICIAR EXPERIENCIA</button>
+        <button class="btn btn-parar" onclick="pararExperiencia()">PARAR TODO</button>
+    </div>
+
+    <div id="panel-estado">
+        <div class="lectura">SISTEMA: <span id="status" class="resaltado">ESPERANDO...</span></div>
+        <div class="lectura">ESTERNÓN: <span id="vibracion-val" class="resaltado">REPOSO</span></div>
+        <div class="lectura">CALOR ARMÓNICO: <span id="calor-val" class="resaltado">ESTABLE</span></div>
+    </div>
+
     <script>
-        let contextoAudio;
-        let osciladorPaz, osciladorMemoria, gananciaMaestra;
-        let sistemaActivo = false;
+        let wakeLock = null;
+        let oscilador = null;
+        let audioCtx = null;
+        let intervaloVibracion = null;
 
-        // FUNCIÓN PARA EMITIR LA PALABRA CLAVE
-        function avisarCoherencia() {
-            const mensaje = new SpeechSynthesisUtterance("COHERENCIA");
-            mensaje.lang = 'es-ES';
-            mensaje.rate = 0.8; // Voz profunda y pausada
-            mensaje.pitch = 1.0;
-            window.speechSynthesis.speak(mensaje);
-        }
-
-        async function iniciarSintonía() {
-            if (sistemaActivo) return;
-            sistemaActivo = true;
-
-            // ESPERA INICIAL EN SILENCIO
-            setTimeout(async () => {
-                contextoAudio = new (window.AudioContext || window.webkitAudioContext)();
+        async function iniciarExperiencia() {
+            try {
+                // ACTIVAR WAKELOCK (PANTALLA SIEMPRE ACTIVA)
+                if ('wakeLock' in navigator) {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                }
                 
-                osciladorPaz = contextoAudio.createOscillator();
-                osciladorMemoria = contextoAudio.createOscillator();
-                gananciaMaestra = contextoAudio.createGain();
+                // INICIAR AUDIO (OSCILOSCOPIO SÓNICO)
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                oscilador = audioCtx.createOscillator();
+                let ganancia = audioCtx.createGain();
+                
+                oscilador.type = 'sine';
+                oscilador.frequency.setValueAtTime(432, audioCtx.currentTime); // Frecuencia Armónica
+                ganancia.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                
+                oscilador.connect(ganancia);
+                ganancia.connect(audioCtx.destination);
+                oscilador.start();
 
-                osciladorPaz.frequency.value = 432;
-                osciladorMemoria.frequency.value = 40;
+                // INICIAR VIBRACIÓN LEY DE WINTER
+                intervaloVibracion = setInterval(() => {
+                    if (navigator.vibrate) { navigator.vibrate([60, 40, 60]); }
+                }, 1200);
 
-                gananciaMaestra.gain.setValueAtTime(0, contextoAudio.currentTime);
-                // RAMPA DE SEDA: 8 SEGUNDOS DE SUBIDA
-                gananciaMaestra.gain.linearRampToValueAtTime(0.5, contextoAudio.currentTime + 8);
-
-                osciladorPaz.connect(gananciaMaestra);
-                osciladorMemoria.connect(gananciaMaestra);
-                gananciaMaestra.connect(contextoAudio.destination);
-
-                osciladorPaz.start();
-                osciladorMemoria.start();
-
-                // AL TERMINAR LA RAMPA, EL SISTEMA AVISA LA COHERENCIA
-                setTimeout(() => {
-                    avisarCoherencia();
-                }, 8000);
-
-                // VIBRACIÓN HÁPTICA A 40Hz
-                setInterval(() => {
-                    if (sistemaActivo) window.navigator.vibrate(15);
-                }, 25);
-
-            }, 7000); 
+                document.getElementById('status').innerText = "EN EJECUCIÓN";
+                document.getElementById('status').style.color = "#2ECC71";
+                document.getElementById('vibracion-val').innerText = "RESONANDO EN PECHO";
+                
+                console.log("REGISTRO: Experiencia iniciada correctamente.");
+            } catch (e) {
+                alert("Por favor, interactúa con la pantalla primero.");
+            }
         }
 
-        // ACTIVACIÓN POR EL SENSOR DE MOVIMIENTO
-        window.addEventListener('devicemotion', (event) => {
-            let aceleracion = Math.abs(event.accelerationIncludingGravity.z);
-            if (aceleracion > 0.5 && !sistemaActivo) {
-                iniciarSintonía();
+        function pararExperiencia() {
+            // DETENER AUDIO
+            if (oscilador) {
+                oscilador.stop();
+                oscilador.disconnect();
             }
-        });
+            
+            // DETENER VIBRACIÓN
+            if (intervaloVibracion) {
+                clearInterval(intervaloVibracion);
+            }
+            
+            // LIBERAR WAKELOCK
+            if (wakeLock !== null) {
+                wakeLock.release().then(() => { wakeLock = null; });
+            }
 
-        // WAKELOCK PARA EVITAR APAGADO
-        if ('wakeLock' in navigator) {
-            navigator.wakeLock.request('screen').catch(() => {});
+            document.getElementById('status').innerText = "SISTEMA DETENIDO";
+            document.getElementById('status').style.color = "#E74C3C";
+            document.getElementById('vibracion-val').innerText = "REPOSO";
+            
+            console.log("REGISTRO: Experiencia detenida por el usuario.");
         }
-
-        // CIERRE SUAVE SI SE SEPARA DEL PECHO
-        window.addEventListener('deviceproximity', (event) => {
-            if (event.value > 0 && gananciaMaestra) {
-                gananciaMaestra.gain.setTargetAtTime(0, contextoAudio.currentTime, 0.5);
-                sistemaActivo = false;
-            }
-        });
     </script>
 </body>
 </html>
