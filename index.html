@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>WINTER V3.0 - SINTONÍA FINA</title>
+    <title>WINTER V3.0 - RAMPA INVERSA</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
         body {
@@ -64,7 +64,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>🌿 WINTER · SINTONÍA FINA</h1>
+        <h1>🌿 WINTER · RAMPA INVERSA</h1>
         <div class="panel">
             <div class="tiempo" id="cuentaAtras">21:00</div>
             <div style="text-align:center;">TIEMPO RESTANTE</div>
@@ -103,9 +103,12 @@
         <div class="indicador alerta" id="alertaDespegue" style="display:none;">
             ⚠️ CELULAR DESPEGADO · TONO DE ANCLAJE 200 Hz
         </div>
+        <div class="indicador" id="indicadorRampa" style="display:none; background:#2a4a2a;">
+            🌅 RAMPA INVERSA ACTIVA · CONVERGIENDO A LA UNIDAD
+        </div>
 
         <footer>
-            Apoya sobre el esternón · La rampa de entrada es áurea · Modo espejo activo
+            Apoya sobre el esternón · Últimos 2 minutos: convergencia binaural
         </footer>
     </div>
 
@@ -115,6 +118,7 @@
         // ===========================================
         const PHI = 1.618033988749895;
         const DURACION_SESION = 21 * 60; // 21 minutos
+        const DURACION_RAMPA_INVERSA = 120; // 2 minutos
         
         // Modos: [nombre, frecuencia objetivo, frecuencia izquierda, frecuencia derecha]
         const MODOS = [
@@ -143,10 +147,14 @@
         let intervaloRegistro = null;
         let tiempoInicio = 0;
 
-        // Variables para la rampa de anclaje
+        // Variables para la rampa de anclaje inicial
         let tiempoRampa = 0;
         let rampaActiva = false;
-        const DURACION_RAMPA = 10; // 10 segundos
+        const DURACION_RAMPA_INICIAL = 10; // 10 segundos
+
+        // Variables para la rampa inversa final
+        let rampaInversaActiva = false;
+        let freqIzqBase = 0, freqDerBase = 0;
 
         // Sensores y análisis
         let ultimoZ = 0;
@@ -154,7 +162,7 @@
         let rpm = 12;
         let frenado = 0;
         let varianzaZ = 0;
-        let tiempoQuietud = 0; // contador para modo espejo
+        let tiempoQuietud = 0;
         let despegado = false;
         let enAlerta = false;
 
@@ -174,6 +182,7 @@
         const txtMotorEl = document.getElementById('txtMotor');
         const contadorRegistrosEl = document.getElementById('contadorRegistros');
         const alertaDespegueEl = document.getElementById('alertaDespegue');
+        const indicadorRampaEl = document.getElementById('indicadorRampa');
 
         const btnIniciar = document.getElementById('btnIniciar');
         const btnModo = document.getElementById('btnModo');
@@ -249,14 +258,14 @@
 
         function setFrecuenciasAnclaje() {
             if (oscIzq && oscDer) {
-                oscIzq.frequency.value = 300; // 200 Hz de anclaje? (200/200 da 0, mejor 300/100 = 200)
-                oscDer.frequency.value = 100; // Diferencia = 200 Hz
+                oscIzq.frequency.value = 300; // 300 y 100 dan diferencia 200 Hz
+                oscDer.frequency.value = 100;
                 frecActualEl.innerText = '⚠️ ANCLAJE 200 Hz';
             }
         }
 
         function restaurarFrecuenciasModo() {
-            if (oscIzq && oscDer && !enAlerta) {
+            if (oscIzq && oscDer && !enAlerta && !rampaInversaActiva) {
                 const modo = MODOS[indiceModo];
                 oscIzq.frequency.value = modo.freqIzq;
                 oscDer.frequency.value = modo.freqDer;
@@ -334,32 +343,30 @@
             // =======================================
             if (varianzaZ < 0.5) {
                 tiempoQuietud++;
-                // Reducción logarítmica: cuanto más tiempo quieto, más reduce
-                if (tiempoQuietud > 5) { // después de ~5 segundos de quietud
-                    const factorReduccion = 1 / Math.log10(tiempoQuietud + 10); // logarítmico
+                if (tiempoQuietud > 5) {
+                    const factorReduccion = 1 / Math.log10(tiempoQuietud + 10);
                     frenado = Math.max(0, frenado * factorReduccion);
                     
-                    // También reducir ganancia si existe
-                    if (gananciaGeneral) {
+                    if (gananciaGeneral && !rampaInversaActiva) {
                         const volObjetivo = 0.1 + (0.2 * factorReduccion);
                         gananciaGeneral.gain.value = Math.max(0.05, volObjetivo);
                     }
                 }
             } else {
-                tiempoQuietud = 0; // reset si se mueve
+                tiempoQuietud = 0;
             }
 
             // =======================================
             // RESONANCIA (nueva columna)
             // =======================================
-            resonanciaActiva = (rpm < 10); // Si rpm baja de 10, marcamos resonancia
+            resonanciaActiva = (rpm < 10);
             valorResonanciaEl.innerText = resonanciaActiva ? '⚡' : '·';
             
             valorRPMEl.innerText = `${Math.round(rpm)} rpm`;
             valorFrenadoEl.innerText = `${Math.round(frenado)}%`;
 
-            // Aplicar frenado si el sistema está activo y no en alerta
-            if (sistemaActivo && !enAlerta) {
+            // Aplicar frenado si el sistema está activo, no en alerta y no en rampa inversa
+            if (sistemaActivo && !enAlerta && !rampaInversaActiva) {
                 aplicarFrenado();
             }
         }
@@ -368,7 +375,7 @@
         // FRENADO ARMÓNICO
         // ===========================================
         function aplicarFrenado() {
-            if (!sistemaActivo) return;
+            if (!sistemaActivo || rampaInversaActiva) return; // No actuar durante rampa inversa
 
             // Modulación de ganancia según frenado
             if (gananciaGeneral) {
@@ -376,6 +383,16 @@
                 const volMax = 0.8;
                 const vol = volBase + (frenado / 100) * (volMax - volBase);
                 gananciaGeneral.gain.value = Math.min(volMax, vol);
+            }
+
+            // Modulación de frecuencia (efecto binaural dinámico)
+            if (oscIzq && oscDer && audioCtx) {
+                const tiempo = (Date.now() - tiempoInicio) / 1000;
+                const modPhi = Math.sin(2 * Math.PI * PHI * tiempo);
+                const desviacion = (frenado / 100) * 2; // Hasta 2 Hz
+                const modo = MODOS[indiceModo];
+                oscIzq.frequency.value = modo.freqIzq + desviacion * modPhi;
+                oscDer.frequency.value = modo.freqDer - desviacion * modPhi;
             }
 
             // Motor (campo magnético)
@@ -389,13 +406,12 @@
         }
 
         // ===========================================
-        // RAMPA DE ANCLAJE ÁUREA
+        // RAMPA DE ANCLAJE INICIAL
         // ===========================================
         function iniciarRampaAnclaje() {
             rampaActiva = true;
             tiempoRampa = 0;
             
-            // Partir desde cero
             if (gananciaGeneral) gananciaGeneral.gain.value = 0;
             
             const intervaloRampa = setInterval(() => {
@@ -404,30 +420,58 @@
                     return;
                 }
                 
-                tiempoRampa += 0.1; // cada 100ms
-                if (tiempoRampa >= DURACION_RAMPA) {
-                    // Rampa completada
+                tiempoRampa += 0.1;
+                if (tiempoRampa >= DURACION_RAMPA_INICIAL) {
                     rampaActiva = false;
-                    if (gananciaGeneral) gananciaGeneral.gain.value = 0.3; // volumen base
+                    if (gananciaGeneral) gananciaGeneral.gain.value = 0.3;
                     clearInterval(intervaloRampa);
                     return;
                 }
                 
-                // Progresión siguiendo φ: la ganancia sigue 1 - φ^(-t)
-                const progreso = tiempoRampa / DURACION_RAMPA;
-                // Curva áurea suave: 1 - exp(-φ * progreso * 3) para que llegue a 0.95 al final
+                const progreso = tiempoRampa / DURACION_RAMPA_INICIAL;
                 const factor = 1 - Math.exp(-PHI * progreso * 3);
                 
                 if (gananciaGeneral) {
                     gananciaGeneral.gain.value = 0.3 * factor;
                 }
                 
-                // Motor también en rampa (vibración muy suave al inicio)
                 if (motorActivo && navigator.vibrate && factor > 0.1) {
                     navigator.vibrate([Math.floor(15 * factor), 50]);
                 }
                 
-            }, 100); // 100ms
+            }, 100);
+        }
+
+        // ===========================================
+        // RAMPA INVERSA FINAL (últimos 2 minutos)
+        // ===========================================
+        function aplicarRampaInversa() {
+            if (!oscIzq || !oscDer || !gananciaGeneral) return;
+
+            const progreso = 1 - (tiempoRestante / DURACION_RAMPA_INVERSA); // 0 a 1
+            const media = (freqIzqBase + freqDerBase) / 2;
+            const nuevaIzq = freqIzqBase - (freqIzqBase - media) * progreso;
+            const nuevaDer = freqDerBase - (freqDerBase - media) * progreso;
+
+            oscIzq.frequency.value = nuevaIzq;
+            oscDer.frequency.value = nuevaDer;
+
+            // Reducir volumen progresivamente
+            const volActual = gananciaGeneral.gain.value;
+            gananciaGeneral.gain.value = volActual * (1 - progreso * 0.95); // Al final ~5% del volumen
+
+            // Reducir vibración
+            if (motorActivo && navigator.vibrate) {
+                if (progreso < 0.8) {
+                    navigator.vibrate([Math.floor(15 * (1 - progreso)), 50]);
+                } else {
+                    navigator.vibrate(0);
+                }
+            }
+
+            // Actualizar display
+            frecActualEl.innerText = `⚛️ ${Math.round(nuevaIzq)}/${Math.round(nuevaDer)} Hz (unidad)`;
+            indicadorRampaEl.style.display = 'flex';
         }
 
         // ===========================================
@@ -481,7 +525,13 @@
             tiempoInicio = Date.now();
             datosSesion = [];
             enAlerta = false;
+            rampaInversaActiva = false;
             alertaDespegueEl.style.display = 'none';
+            indicadorRampaEl.style.display = 'none';
+
+            // Guardar frecuencias base del modo
+            freqIzqBase = MODOS[indiceModo].freqIzq;
+            freqDerBase = MODOS[indiceModo].freqDer;
 
             // Wake lock
             if ('wakeLock' in navigator) {
@@ -499,12 +549,24 @@
             intervaloCuentaAtras = setInterval(() => {
                 tiempoRestante--;
                 actualizarCuentaAtras();
+
+                // Detectar inicio de rampa inversa (últimos 2 minutos)
+                if (sistemaActivo && tiempoRestante <= DURACION_RAMPA_INVERSA && tiempoRestante > 0) {
+                    if (!rampaInversaActiva) {
+                        rampaInversaActiva = true;
+                        // Opcional: podríamos guardar las frecuencias actuales como base, pero mejor usar las originales
+                    }
+                    aplicarRampaInversa();
+                } else {
+                    rampaInversaActiva = false;
+                    indicadorRampaEl.style.display = 'none';
+                }
             }, 1000);
 
-            // Pulso Winter
+            // Pulso Winter (opcional, se puede dejar)
             intervaloPulso = setInterval(() => {
                 if (!sistemaActivo) return;
-                // Aquí podrías añadir un pequeño pulso rítmico si quieres
+                // Pequeño pulso rítmico cada φ segundos (opcional)
             }, PHI * 1000);
 
             // Registro
@@ -520,6 +582,7 @@
 
             sistemaActivo = false;
             rampaActiva = false;
+            rampaInversaActiva = false;
             
             clearInterval(intervaloCuentaAtras);
             clearInterval(intervaloPulso);
@@ -534,6 +597,8 @@
             estadoSistemaEl.className = 'inactivo';
             cuentaAtrasEl.innerText = '21:00';
             btnModo.disabled = false;
+            indicadorRampaEl.style.display = 'none';
+            alertaDespegueEl.style.display = 'none';
         }
 
         // ===========================================
@@ -560,7 +625,7 @@
         });
 
         btnVolMas.addEventListener('click', () => {
-            if (gananciaGeneral) {
+            if (gananciaGeneral && !rampaInversaActiva) {
                 let vol = gananciaGeneral.gain.value + 0.1;
                 if (vol > 1) vol = 1;
                 gananciaGeneral.gain.value = vol;
@@ -568,7 +633,7 @@
         });
 
         btnVolMenos.addEventListener('click', () => {
-            if (gananciaGeneral) {
+            if (gananciaGeneral && !rampaInversaActiva) {
                 let vol = gananciaGeneral.gain.value - 0.1;
                 if (vol < 0.05) vol = 0.05;
                 gananciaGeneral.gain.value = vol;
