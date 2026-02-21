@@ -2,193 +2,373 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>WINTER AVANZADO</title>
+    <title>WINTER · BINAURAL 21'</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
+        * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
         body {
-            background: #000;
-            color: #0f0;
-            font-family: 'Courier New', monospace;
-            text-align: center;
+            background: #0a0f0a;
+            color: #b0ffb0;
+            font-family: 'Segoe UI', Roboto, sans-serif;
             margin: 0;
-            height: 100vh;
+            padding: 16px;
+            min-height: 100vh;
             display: flex;
             flex-direction: column;
-            justify-content: center;
-            transition: background-color 0.5s;
         }
-        #valor {
-            font-size: 5em;
-            font-weight: bold;
-            transition: 0.1s;
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            width: 100%;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
         }
-        .pulso-visual {
-            width: 100px;
-            height: 100px;
-            background: #0f0;
-            border-radius: 50%;
-            margin: 20px auto;
-            transition: transform 0.8s;
-            box-shadow: 0 0 30px #0f0;
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 300;
+            text-align: center;
+            margin: 5px 0;
+            color: #b0ffb0;
+            text-shadow: 0 0 15px #2a8;
         }
-        button {
-            padding: 15px 30px;
-            font-size: 1.2em;
-            background: #111;
-            color: #0f0;
-            border: 2px solid #0f0;
-            border-radius: 50px;
-            cursor: pointer;
-            margin: 10px;
-            font-family: 'Courier New', monospace;
-        }
-        button:hover {
-            background: #0f0;
-            color: #000;
-        }
-        #estado {
-            margin: 10px;
-            font-size: 1.2em;
-        }
-        #modo {
-            margin: 5px;
-            color: #ff0;
-        }
-        #info {
-            font-size: 0.9em;
+        .subtitulo {
+            text-align: center;
+            font-size: 1rem;
             opacity: 0.8;
-            white-space: pre-wrap;
+            margin-bottom: 15px;
+        }
+        .tirador {
+            background: #1a2a1a;
+            border-radius: 40px;
+            padding: 20px;
+            margin-bottom: 20px;
+            text-align: center;
+            border: 2px solid #3a8;
+        }
+        .tiempo-restante {
+            font-size: 4.5rem;
+            font-weight: bold;
+            font-family: monospace;
+            color: #8f8;
+            text-shadow: 0 0 25px #2a8;
+            line-height: 1.2;
+        }
+        .etiqueta-tiempo {
+            font-size: 1.2rem;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+        }
+        .card {
+            background: #1a2a1a;
+            border-radius: 32px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid #3a6a3a;
+        }
+        .valor-presion {
+            font-size: 3.5rem;
+            font-weight: bold;
+            text-align: center;
+            font-family: monospace;
+        }
+        .grid-botones {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin: 15px 0;
+        }
+        .boton {
+            background: #2a3a2a;
+            border: 2px solid #5a9a5a;
+            color: white;
+            font-size: 1.5rem;
+            font-weight: bold;
+            padding: 18px 0;
+            border-radius: 50px;
+            text-align: center;
+            cursor: pointer;
+            transition: 0.1s;
+            box-shadow: 0 5px 0 #1a2a1a;
+        }
+        .boton:active {
+            transform: translateY(4px);
+            box-shadow: 0 1px 0 #1a2a1a;
+            background: #3a5a3a;
+        }
+        .boton:disabled {
+            opacity: 0.4;
+            transform: none;
+            pointer-events: none;
+            filter: grayscale(0.8);
+        }
+        .boton-grande {
+            grid-column: span 2;
+            background: #3a6a3a;
+            border-color: #8f8;
+            font-size: 2rem;
+            padding: 22px 0;
+        }
+        .indicador {
+            background: #102010;
+            border-radius: 40px;
+            padding: 12px 20px;
+            margin: 8px 0;
+            display: flex;
+            justify-content: space-between;
+            font-size: 1.2rem;
+            border: 1px solid #3a7a3a;
+        }
+        .activo { color: #8f8; }
+        .inactivo { color: #f88; }
+        footer {
+            text-align: center;
+            font-size: 0.9rem;
+            opacity: 0.6;
+            margin-top: 15px;
         }
     </style>
 </head>
 <body>
+    <div class="container">
+        <h1>🌿 WINTER · 21'</h1>
+        <div class="subtitulo">Sonidos Binaurales · Ley Áurea φ = 1.618</div>
 
-    <div id="estado">SISTEMA INACTIVO</div>
-    <div id="modo">MODO: NORMAL (432 Hz)</div>
-    <div id="valor">0.0</div>
-    <p>PRESIÓN / MOVIMIENTO (MANÓMETRO)</p>
-    <div id="circulo" class="pulso-visual"></div>
-    <div id="info">[ENTER] Iniciar • [M] Modo • [V] Vibración • [A] Audio • [+/-] Vol • [S] CSV</div>
-    <button onclick="toggleSistema()">INICIAR SISTEMA</button>
+        <!-- CUENTA ATRÁS PRINCIPAL -->
+        <div class="tirador">
+            <div class="tiempo-restante" id="cuentaAtras">21:00</div>
+            <div class="etiqueta-tiempo">MINUTOS RESTANTES</div>
+        </div>
+
+        <!-- INDICADOR DE RESPIRACIÓN -->
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span>🌬 RESPIRACIÓN</span>
+                <span id="valorRPM">12 rpm</span>
+            </div>
+            <div class="valor-presion" id="valorPresion">0.0</div>
+            <div style="display: flex; justify-content: space-between; margin-top: 10px;">
+                <span>⚡ FRENADO <span id="valorFrenado">0%</span></span>
+                <span>🎵 <span id="frecActual">40 Hz</span></span>
+            </div>
+        </div>
+
+        <!-- BOTONES GRANDES -->
+        <div class="grid-botones">
+            <div class="boton boton-grande" id="btnIniciar">▶ INICIAR SESIÓN (21')</div>
+            <div class="boton" id="btnModo">🌙 MODO<br><small id="txtModo">40 Hz (Alzheimer)</small></div>
+            <div class="boton" id="btnMotor">📳 MOTOR<br><small id="txtMotor">ACTIVADO</small></div>
+            <div class="boton" id="btnVolMas">🔊 +</div>
+            <div class="boton" id="btnVolMenos">🔉 -</div>
+            <div class="boton-grande" id="btnGuardar">💾 GUARDAR SESIÓN</div>
+        </div>
+
+        <!-- ESTADOS -->
+        <div class="indicador">
+            <span>📊 SISTEMA:</span>
+            <span id="estadoSistema" class="inactivo">DETENIDO</span>
+        </div>
+        <div class="indicador">
+            <span>📈 REGISTROS:</span>
+            <span id="contadorRegistros">0</span>
+        </div>
+
+        <footer>
+            Usa auriculares · Apoya el celular sobre el pecho · Sesión de 21 minutos
+        </footer>
+    </div>
 
     <script>
         // ===========================================
-        // CONSTANTES Y CONFIGURACIÓN
+        // CONSTANTES
         // ===========================================
         const PHI = 1.618033988749895;
-        const FREC_BASE = 432; // Hz (puede variar según modo)
+        const DURACION_SESION = 21 * 60; // 21 minutos en segundos
+
+        // Modos con frecuencias binaurales
+        // Cada modo define: [frecuencia objetivo, frecuencia base izquierda, frecuencia base derecha]
         const MODOS = [
-            { nombre: "NORMAL",   frec: 432,   motor: true,  desc: "Base 432 Hz + pulso φ" },
-            { nombre: "SCHULTZ",  frec: 40,    motor: true,  desc: "40 Hz + fases autógenas" },
-            { nombre: "SUEÑO",    frec: 4,     motor: false, desc: "Delta (4 Hz) para dormir" },
-            { nombre: "CONCENTRACIÓN", frec: 16, motor: false, desc: "Beta (16 Hz) enfoque" },
-            { nombre: "SOLFEGGIO", frec: 528,  motor: true,  desc: "528 Hz reparación" }
+            { 
+                nombre: "40 Hz (Alzheimer)",   
+                freqObj: 40, 
+                freqIzq: 200, 
+                freqDer: 160, 
+                desc: "Gamma · Estimulación cognitiva" 
+            },
+            { 
+                nombre: "432 Hz (Relajación)", 
+                freqObj: 432, 
+                freqIzq: 700, 
+                freqDer: 268, 
+                desc: "Armónico natural · Calma profunda" 
+            },
+            { 
+                nombre: "528 Hz (Reparación)", 
+                freqObj: 528, 
+                freqIzq: 854, 
+                freqDer: 326, 
+                desc: "Solfeggio · Regeneración" 
+            },
+            { 
+                nombre: "8 Hz (Alfa)",         
+                freqObj: 8, 
+                freqIzq: 200, 
+                freqDer: 192, 
+                desc: "Meditación · Relajación consciente" 
+            },
+            { 
+                nombre: "4 Hz (Delta)",        
+                freqObj: 4, 
+                freqIzq: 100, 
+                freqDer: 96, 
+                desc: "Sueño profundo" 
+            }
         ];
-        let indiceModo = 0;
+        let indiceModo = 0; // 40 Hz por defecto
 
         // ===========================================
         // VARIABLES DE ESTADO
         // ===========================================
         let sistemaActivo = false;
         let motorActivo = true;
-        let audioActivo = true;
+        let audioCtx = null;
+        let oscIzq = null;
+        let oscDer = null;
+        let gananciaIzq = null;
+        let gananciaDer = null;
+        let gananciaGeneral = null;
         let wakeLock = null;
 
-        // ===========================================
-        // AUDIO
-        // ===========================================
-        let audioCtx = null;
-        let osc = null;
-        let gain = null;
+        // Temporizador
+        let tiempoRestante = DURACION_SESION;
+        let intervaloCuentaAtras = null;
+        let intervaloPulso = null;
+        let intervaloRegistro = null;
+        let tiempoInicio = 0;
 
-        // ===========================================
-        // SENSORES Y ANÁLISIS DE RESPIRACIÓN
-        // ===========================================
+        // Sensores y frenado
         let ultimoZ = 0;
         let bufferZ = [];
-        const BUFFER_SIZE = 150; // 15 segundos a 10 Hz aprox
-        let rpm = 12; // respiraciones por minuto estimadas
-        let frenado = 0; // 0-100%
+        let rpm = 12;
+        let frenado = 0;
+
+        // Registro CSV
+        let datosSesion = [];
+
+        // Elementos DOM
+        const cuentaAtrasEl = document.getElementById('cuentaAtras');
+        const valorPresionEl = document.getElementById('valorPresion');
+        const valorRPMEl = document.getElementById('valorRPM');
+        const valorFrenadoEl = document.getElementById('valorFrenado');
+        const frecActualEl = document.getElementById('frecActual');
+        const estadoSistemaEl = document.getElementById('estadoSistema');
+        const txtModoEl = document.getElementById('txtModo');
+        const txtMotorEl = document.getElementById('txtMotor');
+        const contadorRegistrosEl = document.getElementById('contadorRegistros');
+
+        const btnIniciar = document.getElementById('btnIniciar');
+        const btnModo = document.getElementById('btnModo');
+        const btnMotor = document.getElementById('btnMotor');
+        const btnVolMas = document.getElementById('btnVolMas');
+        const btnVolMenos = document.getElementById('btnVolMenos');
+        const btnGuardar = document.getElementById('btnGuardar');
 
         // ===========================================
-        // REGISTRO CSV
+        // FUNCIONES DE TIEMPO
         // ===========================================
-        let datosRegistro = [];
-        let tiempoInicio = 0;
-        let intervaloRegistro = null;
-
-        // ===========================================
-        // ELEMENTOS DOM
-        // ===========================================
-        const estadoEl = document.getElementById('estado');
-        const modoEl = document.getElementById('modo');
-        const valorEl = document.getElementById('valor');
-        const circuloEl = document.getElementById('circulo');
-        const infoEl = document.getElementById('info');
-
-        // ===========================================
-        // FUNCIONES DE AUDIO
-        // ===========================================
-        function initAudio() {
-            if (!audioActivo) return;
-            try {
-                if (!audioCtx) {
-                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                }
-                if (audioCtx.state === 'suspended') {
-                    audioCtx.resume();
-                }
-                if (!osc) {
-                    osc = audioCtx.createOscillator();
-                    osc.type = 'sine';
-                    osc.frequency.value = MODOS[indiceModo].frec;
-
-                    gain = audioCtx.createGain();
-                    gain.gain.value = 0.3; // volumen inicial
-
-                    osc.connect(gain);
-                    gain.connect(audioCtx.destination);
-                    osc.start();
-                }
-            } catch (e) {
-                console.warn("Error de audio:", e);
-            }
+        function formatearTiempo(segundos) {
+            const mins = Math.floor(segundos / 60);
+            const segs = segundos % 60;
+            return `${mins.toString().padStart(2, '0')}:${segs.toString().padStart(2, '0')}`;
         }
 
-        function stopAudio() {
-            if (osc) {
-                osc.stop();
-                osc = null;
+        function actualizarCuentaAtras() {
+            if (tiempoRestante <= 0) {
+                finalizarSesion();
+                return;
             }
-            if (audioCtx) {
-                audioCtx.close();
-                audioCtx = null;
-            }
+            cuentaAtrasEl.innerText = formatearTiempo(tiempoRestante);
         }
 
         // ===========================================
-        // SENSORES
+        // FUNCIONES DE AUDIO BINAURAL
+        // ===========================================
+        function iniciarAudioBinaural() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+
+            // Detener osciladores anteriores si existen
+            detenerAudio();
+
+            // Crear canales izquierdo y derecho
+            const modo = MODOS[indiceModo];
+            
+            // Canal izquierdo
+            oscIzq = audioCtx.createOscillator();
+            oscIzq.type = 'sine';
+            oscIzq.frequency.value = modo.freqIzq;
+            
+            // Canal derecho
+            oscDer = audioCtx.createOscillator();
+            oscDer.type = 'sine';
+            oscDer.frequency.value = modo.freqDer;
+
+            // Ganancia para cada canal (permitir balance)
+            gananciaIzq = audioCtx.createGain();
+            gananciaDer = audioCtx.createGain();
+            
+            // Ganancia general (control de volumen)
+            gananciaGeneral = audioCtx.createGain();
+            gananciaGeneral.gain.value = 0.3;
+
+            // Conectar: oscilador → ganancia canal → ganancia general → destino
+            oscIzq.connect(gananciaIzq);
+            oscDer.connect(gananciaDer);
+            
+            gananciaIzq.connect(gananciaGeneral);
+            gananciaDer.connect(gananciaGeneral);
+            
+            // Conectar al destino (auriculares estéreo)
+            gananciaGeneral.connect(audioCtx.destination);
+
+            // Iniciar osciladores
+            oscIzq.start();
+            oscDer.start();
+
+            // Actualizar UI
+            frecActualEl.innerText = `${modo.freqObj} Hz (${modo.freqIzq}/${modo.freqDer})`;
+        }
+
+        function detenerAudio() {
+            if (oscIzq) {
+                oscIzq.stop();
+                oscIzq = null;
+            }
+            if (oscDer) {
+                oscDer.stop();
+                oscDer = null;
+            }
+        }
+
+        // ===========================================
+        // SENSORES (siempre activos)
         // ===========================================
         if (window.DeviceMotionEvent) {
             window.addEventListener('devicemotion', (event) => {
                 const acc = event.accelerationIncludingGravity;
                 if (acc) {
-                    const x = acc.x || 0;
-                    const y = acc.y || 0;
-                    const z = acc.z || 0;
-                    const total = Math.sqrt(x*x + y*y + z*z).toFixed(1);
-                    valorEl.innerText = total;
+                    ultimoZ = acc.z || 0;
+                    valorPresionEl.innerText = ultimoZ.toFixed(1);
 
-                    // Guardar Z (presión) para análisis respiratorio
-                    ultimoZ = z;
-                    bufferZ.push({ valor: z, tiempo: Date.now() });
-                    if (bufferZ.length > BUFFER_SIZE) bufferZ.shift();
+                    bufferZ.push({ valor: ultimoZ, tiempo: Date.now() });
+                    if (bufferZ.length > 200) bufferZ.shift();
 
-                    // Cambiar color de fondo según presión (efecto visual)
-                    const intensidad = Math.min(255, Math.abs(z) * 20);
-                    document.body.style.backgroundColor = `rgb(0, ${intensidad/2}, ${intensidad})`;
-
-                    // Analizar respiración cada 10 muestras (~1 seg)
-                    if (bufferZ.length % 10 === 0 && bufferZ.length > 30) {
+                    if (bufferZ.length % 10 === 0 && bufferZ.length > 50) {
                         analizarRespiracion();
                     }
                 }
@@ -197,11 +377,10 @@
 
         function analizarRespiracion() {
             const ahora = Date.now();
-            const ventana = bufferZ.filter(d => ahora - d.tiempo < 15000); // últimos 15 s
-            if (ventana.length < 20) return;
+            const ventana = bufferZ.filter(d => ahora - d.tiempo < 20000);
+            if (ventana.length < 30) return;
 
             const valores = ventana.map(d => d.valor);
-            // Detección simple de picos (cambios de signo de la derivada)
             let picos = 0;
             for (let i = 2; i < valores.length - 2; i++) {
                 if (valores[i] > valores[i-1] && valores[i] > valores[i-2] &&
@@ -209,79 +388,80 @@
                     picos++;
                 }
             }
-            const duracionMin = (ahora - ventana[0].tiempo) / 1000 / 60; // minutos
+            const duracionMin = (ahora - ventana[0].tiempo) / 60000;
             rpm = duracionMin > 0 ? picos / duracionMin : 12;
 
-            // Calcular frenado: si rpm > 16 o < 8, aumentar intensidad
-            if (rpm > 16) {
-                frenado = Math.min(100, (rpm - 16) * 10);
-            } else if (rpm < 8) {
-                frenado = Math.min(50, (8 - rpm) * 10);
-            } else {
-                frenado = 0;
-            }
+            // Calcular frenado (0-100)
+            if (rpm > 16) frenado = Math.min(100, (rpm - 16) * 10);
+            else if (rpm < 8) frenado = Math.min(50, (8 - rpm) * 10);
+            else frenado = 0;
 
-            // Aplicar efectos si el sistema está activo
+            valorRPMEl.innerText = `${Math.round(rpm)} rpm`;
+            valorFrenadoEl.innerText = `${Math.round(frenado)}%`;
+
+            // Aplicar frenado si el sistema está activo
             if (sistemaActivo) {
-                aplicarFrenado();
+                aplicarFrenadoBinaural();
             }
         }
 
         // ===========================================
-        // FRENADO ARMÓNICO
+        // FRENADO ARMÓNICO BINAURAL
         // ===========================================
-        function aplicarFrenado() {
-            // Modificar volumen y frecuencia según frenado
-            if (audioActivo && gain && osc) {
-                const volBase = 0.3;
-                gain.gain.value = volBase + (frenado / 100) * 0.5; // hasta 0.8
+        function aplicarFrenadoBinaural() {
+            if (!sistemaActivo) return;
 
-                // Modulación de frecuencia basada en frenado (solo en modo normal)
-                if (indiceModo === 0) { // modo normal
-                    const desviacion = (frenado / 100) * 20; // hasta 20 Hz de desviación
-                    osc.frequency.value = MODOS[indiceModo].frec + desviacion * Math.sin(Date.now() / 500);
-                }
+            // Modulación del volumen según frenado
+            if (gananciaGeneral) {
+                const volBase = 0.3;
+                const volMax = 0.8;
+                const vol = volBase + (frenado / 100) * (volMax - volBase);
+                gananciaGeneral.gain.value = Math.min(volMax, vol);
             }
 
-            // Motor de vibración (campo magnético)
+            // Modulación sutil de frecuencias según Ley de Winter
+            if (oscIzq && oscDer && audioCtx) {
+                const tiempo = (Date.now() - tiempoInicio) / 1000;
+                const modPhi = Math.sin(2 * Math.PI * PHI * tiempo);
+                
+                const modo = MODOS[indiceModo];
+                // Pequeña variación alrededor de la frecuencia base (±2 Hz)
+                const desviacion = frenado / 100 * 2; // Hasta 2 Hz de desviación
+                
+                oscIzq.frequency.value = modo.freqIzq + desviacion * modPhi;
+                oscDer.frequency.value = modo.freqDer - desviacion * modPhi; // Contrafase para mantener diferencia
+            }
+
+            // Motor (campo magnético)
             if (motorActivo && navigator.vibrate) {
                 if (frenado > 20) {
-                    // Vibración intensa: pulsos largos
                     navigator.vibrate([30 + frenado, 20]);
                 } else {
-                    // Vibración suave de fondo (pulso Winter)
                     navigator.vibrate([15, 50]);
                 }
             }
         }
 
         // ===========================================
-        // PULSO WINTER (bucle principal)
+        // PULSO WINTER (efecto adicional)
         // ===========================================
-        let pulsoInterval = null;
-
         function iniciarPulsoWinter() {
-            if (pulsoInterval) clearInterval(pulsoInterval);
-            pulsoInterval = setInterval(() => {
+            if (intervaloPulso) clearInterval(intervaloPulso);
+            
+            intervaloPulso = setInterval(() => {
                 if (!sistemaActivo) return;
 
-                // Pulso de sonido
-                if (audioActivo && gain && audioCtx) {
+                // Pulso de amplitud suave (efecto rítmico)
+                if (gananciaGeneral && audioCtx) {
                     const ahora = audioCtx.currentTime;
-                    gain.gain.setValueAtTime(0.02, ahora);
-                    gain.gain.exponentialRampToValueAtTime(0.3, ahora + (PHI/2));
-                    gain.gain.exponentialRampToValueAtTime(0.02, ahora + PHI);
+                    const valorActual = gananciaGeneral.gain.value;
+                    
+                    // Crear un pequeño pulso rítmico
+                    gananciaGeneral.gain.setValueAtTime(valorActual * 0.8, ahora);
+                    gananciaGeneral.gain.linearRampToValueAtTime(valorActual, ahora + 0.1);
                 }
 
-                // Pulso visual
-                circuloEl.style.transform = "scale(1.5)";
-                setTimeout(() => { circuloEl.style.transform = "scale(1)"; }, (PHI/2) * 1000);
-
-                // Pulso táctil (si motor activo y frenado bajo, para no saturar)
-                if (motorActivo && navigator.vibrate && frenado < 20) {
-                    navigator.vibrate(200);
-                }
-            }, PHI * 1000);
+            }, PHI * 1000); // Cada 1.618 segundos
         }
 
         // ===========================================
@@ -289,150 +469,170 @@
         // ===========================================
         function iniciarRegistro() {
             if (intervaloRegistro) clearInterval(intervaloRegistro);
-            tiempoInicio = Date.now();
+            
             intervaloRegistro = setInterval(() => {
                 if (!sistemaActivo) return;
-                datosRegistro.push({
-                    tiempo: ((Date.now() - tiempoInicio) / 1000).toFixed(1),
+                
+                const tiempoActual = (Date.now() - tiempoInicio) / 1000;
+                datosSesion.push({
+                    tiempo: tiempoActual.toFixed(1),
                     rpm: rpm.toFixed(1),
                     frenado: frenado.toFixed(0),
                     z: ultimoZ.toFixed(3),
                     modo: MODOS[indiceModo].nombre
                 });
-            }, 2000); // cada 2 segundos
+                
+                contadorRegistrosEl.innerText = datosSesion.length;
+            }, 5000); // Cada 5 segundos
         }
 
         function guardarCSV() {
-            if (datosRegistro.length === 0) {
-                alert("No hay datos para guardar.");
+            if (datosSesion.length === 0) {
+                alert('No hay datos para guardar');
                 return;
             }
-            let csv = "tiempo,rpm,frenado,z,modo\n";
-            datosRegistro.forEach(d => {
+
+            let csv = 'tiempo,rpm,frenado,z,modo\n';
+            datosSesion.forEach(d => {
                 csv += `${d.tiempo},${d.rpm},${d.frenado},${d.z},${d.modo}\n`;
             });
-            const blob = new Blob([csv], { type: "text/csv" });
+
+            const blob = new Blob([csv], { type: 'text/csv' });
             const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
+            const a = document.createElement('a');
             a.download = `winter_${Date.now()}.csv`;
             a.href = url;
             a.click();
             URL.revokeObjectURL(url);
-            alert("CSV guardado.");
         }
 
         // ===========================================
-        // CONTROL DEL SISTEMA
+        // CONTROL DE SESIÓN
         // ===========================================
-        async function toggleSistema() {
-            if (sistemaActivo) {
-                // DETENER
-                sistemaActivo = false;
-                estadoEl.innerText = "SISTEMA INACTIVO";
-                if (pulsoInterval) clearInterval(pulsoInterval);
-                if (intervaloRegistro) clearInterval(intervaloRegistro);
-                stopAudio();
-                if (wakeLock) {
-                    wakeLock.release();
-                    wakeLock = null;
-                }
-                navigator.vibrate(0);
-                document.body.style.backgroundColor = "#000";
-            } else {
-                // INICIAR
-                sistemaActivo = true;
-                estadoEl.innerText = "SISTEMA ACTIVO";
+        function iniciarSesion() {
+            if (sistemaActivo) return;
 
-                // Wake lock
-                if ('wakeLock' in navigator) {
-                    try {
-                        wakeLock = await navigator.wakeLock.request('screen');
-                    } catch (e) {}
-                }
+            sistemaActivo = true;
+            tiempoRestante = DURACION_SESION;
+            tiempoInicio = Date.now();
+            datosSesion = [];
 
-                // Iniciar audio si está activo
-                if (audioActivo) initAudio();
-
-                // Iniciar pulso Winter
-                iniciarPulsoWinter();
-
-                // Iniciar registro
-                iniciarRegistro();
+            // Wake lock
+            if ('wakeLock' in navigator) {
+                navigator.wakeLock.request('screen').then(lock => {
+                    wakeLock = lock;
+                }).catch(() => {});
             }
+
+            // Iniciar audio binaural
+            iniciarAudioBinaural();
+
+            // Iniciar temporizador
+            intervaloCuentaAtras = setInterval(() => {
+                tiempoRestante--;
+                actualizarCuentaAtras();
+            }, 1000);
+
+            // Iniciar pulso Winter
+            iniciarPulsoWinter();
+
+            // Iniciar registro
+            iniciarRegistro();
+
+            // Actualizar UI
+            estadoSistemaEl.innerText = 'ACTIVO';
+            estadoSistemaEl.className = 'activo';
+            btnIniciar.style.opacity = '0.5';
+            btnModo.disabled = true;
+        }
+
+        function finalizarSesion() {
+            if (!sistemaActivo) return;
+
+            sistemaActivo = false;
+
+            // Limpiar intervalos
+            if (intervaloCuentaAtras) clearInterval(intervaloCuentaAtras);
+            if (intervaloPulso) clearInterval(intervaloPulso);
+            if (intervaloRegistro) clearInterval(intervaloRegistro);
+
+            // Detener audio
+            detenerAudio();
+
+            // Liberar wake lock
+            if (wakeLock) {
+                wakeLock.release();
+                wakeLock = null;
+            }
+
+            // Detener vibración
+            navigator.vibrate(0);
+
+            // Actualizar UI
+            estadoSistemaEl.innerText = 'DETENIDO';
+            estadoSistemaEl.className = 'inactivo';
+            cuentaAtrasEl.innerText = '21:00';
+            btnIniciar.style.opacity = '1';
+            btnModo.disabled = false;
+
+            // Mostrar resumen
+            alert(`✅ Sesión completada\nRegistros: ${datosSesion.length}`);
         }
 
         // ===========================================
         // CAMBIO DE MODO
         // ===========================================
         function cambiarModo() {
-            indiceModo = (indiceModo + 1) % MODOS.length;
-            const modo = MODOS[indiceModo];
-            modoEl.innerText = `MODO: ${modo.nombre} (${modo.frec} Hz) - ${modo.desc}`;
-
-            // Actualizar frecuencia del oscilador si existe
-            if (osc) {
-                osc.frequency.value = modo.frec;
+            if (sistemaActivo) {
+                alert('No puedes cambiar el modo durante una sesión');
+                return;
             }
 
-            // Ajustar motor según modo
-            motorActivo = modo.motor;
+            indiceModo = (indiceModo + 1) % MODOS.length;
+            const modo = MODOS[indiceModo];
+            txtModoEl.innerText = modo.nombre;
+            
+            // Actualizar frecuencia mostrada
+            if (!sistemaActivo) {
+                frecActualEl.innerText = `${modo.freqObj} Hz`;
+            }
         }
 
         // ===========================================
-        // EVENTOS DE TECLADO
+        // EVENTOS DE BOTONES
         // ===========================================
-        document.addEventListener('keydown', (e) => {
-            const tecla = e.key.toLowerCase();
-            switch (tecla) {
-                case 'enter':
-                    toggleSistema();
-                    break;
-                case 'm':
-                    cambiarModo();
-                    break;
-                case 'v':
-                    motorActivo = !motorActivo;
-                    if (!motorActivo) navigator.vibrate(0);
-                    infoEl.innerText = `Motor: ${motorActivo ? 'ON' : 'OFF'} | Audio: ${audioActivo ? 'ON' : 'OFF'}`;
-                    break;
-                case 'a':
-                    audioActivo = !audioActivo;
-                    if (sistemaActivo) {
-                        if (audioActivo) initAudio();
-                        else stopAudio();
-                    }
-                    infoEl.innerText = `Motor: ${motorActivo ? 'ON' : 'OFF'} | Audio: ${audioActivo ? 'ON' : 'OFF'}`;
-                    break;
-                case '+':
-                case '=':
-                    if (gain) {
-                        let vol = gain.gain.value + 0.1;
-                        if (vol > 1) vol = 1;
-                        gain.gain.value = vol;
-                    }
-                    break;
-                case '-':
-                    if (gain) {
-                        let vol = gain.gain.value - 0.1;
-                        if (vol < 0) vol = 0;
-                        gain.gain.value = vol;
-                    }
-                    break;
-                case 's':
-                    guardarCSV();
-                    break;
-                case 'r':
-                    // reiniciar audio
-                    if (sistemaActivo && audioActivo) {
-                        stopAudio();
-                        initAudio();
-                    }
-                    break;
+        btnIniciar.addEventListener('click', iniciarSesion);
+        btnModo.addEventListener('click', cambiarModo);
+        
+        btnMotor.addEventListener('click', () => {
+            motorActivo = !motorActivo;
+            txtMotorEl.innerText = motorActivo ? 'ACTIVADO' : 'DESACTIVADO';
+            if (!motorActivo) navigator.vibrate(0);
+        });
+
+        btnVolMas.addEventListener('click', () => {
+            if (gananciaGeneral) {
+                let vol = gananciaGeneral.gain.value + 0.1;
+                if (vol > 1) vol = 1;
+                gananciaGeneral.gain.value = vol;
             }
         });
 
-        // Inicializar modo en pantalla
-        cambiarModo();
+        btnVolMenos.addEventListener('click', () => {
+            if (gananciaGeneral) {
+                let vol = gananciaGeneral.gain.value - 0.1;
+                if (vol < 0.05) vol = 0.05;
+                gananciaGeneral.gain.value = vol;
+            }
+        });
+
+        btnGuardar.addEventListener('click', guardarCSV);
+
+        // ===========================================
+        // INICIALIZACIÓN
+        // ===========================================
+        txtModoEl.innerText = MODOS[0].nombre;
+        frecActualEl.innerText = '40 Hz';
     </script>
 </body>
 </html>
