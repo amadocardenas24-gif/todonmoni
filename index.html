@@ -2,73 +2,80 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>SISTEMA REGENERADOR - PULSO WINTER</title>
+    <title>SISTEMA REGENERADOR SENSORIAL - LEY DE WINTER</title>
     <style>
         body {
-            background-color: #050505;
-            color: #E0E0E0;
+            background-color: #000000;
+            color: #1ABC9C;
             font-family: 'Segoe UI', sans-serif;
             text-align: center;
-            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
         }
-        .panel-control {
-            margin: 40px auto;
-            max-width: 500px;
-            padding: 30px;
-            border: 3px solid #1ABC9C;
-            border-radius: 30px;
-            background-color: #0F0F0F;
-            box-shadow: 0 0 20px rgba(26, 188, 156, 0.3);
-        }
-        .btn {
-            width: 80%;
-            padding: 25px;
-            font-size: 1.6em;
-            font-weight: bold;
-            border: none;
-            border-radius: 20px;
-            cursor: pointer;
-            margin: 15px 0;
-            text-transform: uppercase;
-        }
-        .btn-play { background-color: #1ABC9C; color: white; }
-        .btn-stop { background-color: #C0392B; color: white; }
-        .status-box {
-            font-size: 1.2em;
-            margin-top: 20px;
+        .boton-grande {
+            width: 280px;
+            height: 280px;
+            border-radius: 50%;
+            border: 5px solid #1ABC9C;
+            background: #0A0A0A;
             color: #1ABC9C;
+            font-size: 1.8em;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 0 30px rgba(26, 188, 156, 0.2);
+            margin: 20px auto;
         }
+        .instruccion { font-size: 1.2em; opacity: 0.7; }
     </style>
 </head>
 <body>
 
-    <h1>SISTEMA MÓNICA: PULSO ARMÓNICO</h1>
-    <p>BASADO EN LA LEY DE WINTER ($1.618$)</p>
-
-    <div class="panel-control">
-        <button class="btn btn-play" onclick="iniciarExperiencia()">INICIAR PULSO WINTER</button>
-        <button class="btn btn-stop" onclick="pararExperiencia()">DETENER SISTEMA</button>
-        
-        <div class="status-box">
-            ESTADO: <span id="label-estado">EN REPOSO</span><br>
-            RITMO: <span id="label-ritmo">ESPERANDO...</span>
-        </div>
-    </div>
+    <p class="instruccion">EXPERIENCIA SENSORIAL PARA EL ESTERNÓN</p>
+    <button id="mainButton" class="boton-grande" onclick="gestionarSistema()">INICIAR</button>
+    <p id="info-estado">SISTEMA LISTO</p>
 
     <script>
-        let wakeLock = null;
-        let audioCtx = null;
-        let oscilador = null;
-        let ganancia = null;
         let activo = false;
-        const PHI = 1.618; // LA CONSTANTE DE WINTER
+        let audioCtx, oscilador, ganancia, wakeLock;
+        let datosSesion = [];
+        const PHI = 1.618;
 
-        async function iniciarExperiencia() {
-            if (activo) return;
+        // SÍNTESIS DE VOZ PARA INTERFAZ NO VISUAL
+        function hablar(mensaje) {
+            const voz = new SpeechSynthesisUtterance(mensaje);
+            voz.lang = 'es-ES';
+            voz.rate = 0.85;
+            window.speechSynthesis.speak(voz);
+        }
+
+        // REGISTRO DE MEMORIA SIN ABREVIACIONES
+        function registrar(evento) {
+            const marcaDeTiempo = new Date().toLocaleTimeString();
+            datosSesion.push(`[${marcaDeTiempo}] ${evento}`);
+            console.log(evento);
+        }
+
+        async function gestionarSistema() {
+            if (!activo) {
+                await iniciar();
+            } else {
+                finalizarYGuardar();
+            }
+        }
+
+        async function iniciar() {
             activo = true;
+            document.getElementById('mainButton').innerText = "DETENER";
+            document.getElementById('mainButton').style.borderColor = "#E74C3C";
+            
+            hablar("Iniciando sistema armónico. Coloca el celular sobre el esternón de Mónica.");
+            registrar("Inicio de sesión bajo la Ley de Winter.");
 
             try {
-                // ACTIVAR WAKELOCK PARA PERSISTENCIA TOTAL
+                // WAKELOCK PARA MANTENER SENSORES Y PANTALLA SIEMPRE ACTIVOS
                 if ('wakeLock' in navigator) {
                     wakeLock = await navigator.wakeLock.request('screen');
                 }
@@ -78,48 +85,56 @@
                 ganancia = audioCtx.createGain();
 
                 oscilador.type = 'sine';
-                oscilador.frequency.setValueAtTime(432, audioCtx.currentTime); 
-                
+                oscilador.frequency.setValueAtTime(432, audioCtx.currentTime);
                 ganancia.connect(audioCtx.destination);
                 oscilador.connect(ganancia);
                 oscilador.start();
 
-                document.getElementById('label-estado').innerText = "CONECTADO AL ESTERNÓN";
-                document.getElementById('label-ritmo').innerText = "PULSO PHI ACTIVO";
-
-                ejecutarCicloWinter();
-            } catch (e) {
-                alert("Por favor, toque la pantalla para activar el audio.");
-                activo = false;
+                cicloResonanciaWinter();
+                iniciarSensores();
+            } catch (error) {
+                registrar("Error al iniciar: " + error);
             }
         }
 
-        function ejecutarCicloWinter() {
+        function cicloResonanciaWinter() {
             if (!activo) return;
 
             const ahora = audioCtx.currentTime;
-            const duracionPulso = PHI; // Duración en segundos basada en Winter
+            
+            // BARRIDO DE RESONANCIA (428Hz a 436Hz)
+            oscilador.frequency.exponentialRampToValueAtTime(436, ahora + (PHI / 2));
+            oscilador.frequency.exponentialRampToValueAtTime(428, ahora + PHI);
 
-            // MODULACIÓN DE SONIDO (Crescendo y Diminuendo armónico)
+            // PULSO DE VOLUMEN (RESPIRACIÓN)
             ganancia.gain.cancelScheduledValues(ahora);
             ganancia.gain.setValueAtTime(0.02, ahora);
-            ganancia.gain.exponentialRampToValueAtTime(0.15, ahora + (duracionPulso / 2));
-            ganancia.gain.exponentialRampToValueAtTime(0.02, ahora + duracionPulso);
+            ganancia.gain.exponentialRampToValueAtTime(0.18, ahora + (PHI / 2));
+            ganancia.gain.exponentialRampToValueAtTime(0.02, ahora + PHI);
 
-            // VIBRACIÓN SINCRONIZADA (Pulso táctil Winter)
+            // VIBRACIÓN ARMÓNICA (TACTO)
             if (navigator.vibrate) {
-                // Vibra más fuerte en el pico de la frecuencia
-                setTimeout(() => {
-                    if (activo) navigator.vibrate([200, 100, 200]); 
-                }, (duracionPulso / 2) * 1000);
+                navigator.vibrate([150, 100, 150]);
             }
 
-            // REPETICIÓN DEL CICLO REGENERADOR
-            setTimeout(ejecutarCicloWinter, duracionPulso * 1000);
+            setTimeout(cicloResonanciaWinter, PHI * 1000);
         }
 
-        function pararExperiencia() {
+        function iniciarSensores() {
+            window.addEventListener('devicemotion', (event) => {
+                if (!activo) return;
+                const movimiento = event.accelerationIncludingGravity.z;
+                // SI EL MOVIMIENTO ES ESTABLE, REGISTRAMOS LA ARMONÍA
+                if (Math.abs(movimiento) > 9.5) {
+                    registrar("Contacto estable detectado en el pecho.");
+                }
+            });
+        }
+
+        function finalizarYGuardar() {
             activo = false;
+            hablar("Sesión finalizada. Generando memoria de datos.");
+            
             if (oscilador) {
                 oscilador.stop();
                 oscilador.disconnect();
@@ -128,9 +143,21 @@
                 wakeLock.release();
                 wakeLock = null;
             }
-            document.getElementById('label-estado').innerText = "SISTEMA DETENIDO";
-            document.getElementById('label-ritmo').innerText = "ESPERANDO...";
-            console.log("REGISTRO: Sesión terminada. Datos guardados en memoria.");
+
+            // CREACIÓN DEL ARCHIVO DE MEMORIA TXT
+            const contenido = "INFORME REGENERADOR - LEY DE WINTER\n" +
+                              "====================================\n\n" +
+                              datosSesion.join("\n");
+            
+            const blob = new Blob([contenido], { type: 'text/plain' });
+            const enlace = document.createElement('a');
+            enlace.href = URL.createObjectURL(blob);
+            enlace.download = `Memoria_Winter_${new Date().getTime()}.txt`;
+            enlace.click();
+
+            document.getElementById('mainButton').innerText = "REINICIAR";
+            document.getElementById('mainButton').style.borderColor = "#1ABC9C";
+            registrar("Memoria descargada correctamente.");
         }
     </script>
 </body>
