@@ -2,584 +2,292 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>WINTER - NÚCLEO MAGNÉTICO</title>
+    <title>WINTER - AUDIO SEGURO</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
-<body style="background: #000; color: #0f0; font-family: monospace; padding: 10px; margin: 0; font-size: 12px;">
+<body style="background:#000; color:#0f0; font-family:monospace; padding:10px;">
     <pre>
-╔══════════════════════════════════════════════════════════╗
-║  WINTER CORE v3.0 - CAMPO MAGNÉTICO + SENSORES          ║
-║  Ley Áurea: φ = 1.618033988749895                        ║
-║  Frecuencia Base: 40 Hz (Gamma) × φ = ARMONÍA TOTAL      ║
-╠══════════════════════════════════════════════════════════╣
-║  [ENTER] INICIAR/DETENER TODO                            ║
-║  [V]     Activar/Desactivar MOTOR (campo magnético)      ║
-║  [A]     Activar/Desactivar AUDIO (40 Hz + φ)            ║
-║  [M]     Seleccionar MÚSICA de fondo                     ║
-║  [+/-]   Volumen                                         ║
-║  [S]     Guardar CSV                                      ║
-║  [C]     Limpiar datos                                    ║
-╚══════════════════════════════════════════════════════════╝
+╔════════════════════════════════════════╗
+║  WINTER v4.1 - AUDIO GARANTIZADO      ║
+║  φ = 1.618 | 40 Hz + γ                 ║
+╠════════════════════════════════════════╣
+║  [ENTER] INICIAR/DETENER TODO          ║
+║  [V] Motor ON/OFF                      ║
+║  [A] Audio ON/OFF                      ║
+║  [+/-] Volumen                         ║
+║  [S] Guardar CSV                       ║
+║  [R] Reiniciar audio (si no suena)     ║
+╚════════════════════════════════════════╝
     </pre>
-
     <pre id="estado">SISTEMA: INACTIVO</pre>
-    <pre id="modos">MOTOR: ACTIVO | AUDIO: ACTIVO | MÚSICA: --</pre>
-    <pre id="volumen">VOLUMEN: 30%</pre>
-    <pre id="tiempo">TIEMPO: 0.0 s</pre>
-    <pre id="frecuencia">40 Hz + φ = 64.72 Hz | Pulso: 0.809 Hz</pre>
-    <pre id="sensor-acel">ACEL Z: 0.000 G (presión esternón)</pre>
-    <pre id="sensor-giro">GIRO BETA: 0.0° (horizontalidad)</pre>
-    <pre id="sensor-mag">MAG HEADING: 0.0° (campo magnético)</pre>
-    <pre id="sensor-luz">LUZ: -- lux</pre>
-    <pre id="sensor-prox">PROX: -- cm</pre>
+    <pre id="audio-status">AUDIO: --</pre>
+    <pre id="respiracion">RESPIRACIÓN: --</pre>
+    <pre id="freno">FRENADO: 0%</pre>
     <pre id="contador">REGISTROS: 0</pre>
-    <pre id="ultimo-registro">--</pre>
-
-    <input type="file" id="audioFile" accept="audio/*" style="display: none;">
 
     <script>
-        // ===========================================
-        // NÚCLEO WINTER - CAMPO MAGNÉTICO REAL
-        // SIN GRÁFICAS - SOLO SENSORES Y FRECUENCIAS
-        // ===========================================
-
-        // ----- CONSTANTES ÁUREAS -----
+        // ==================== CONSTANTES ====================
         const PHI = 1.618033988749895;
-        const PHI_MEDIO = PHI / 2;           // 0.8090169943749475 Hz (pulso)
-        const PHI_DOBLE = PHI * 2;            // 3.23606797749979 Hz
-        const FREC_BASE = 40;                  // 40 Hz (Gamma)
-        const FREC_ARMONICA = FREC_BASE * PHI;  // 64.72 Hz
-        const FREC_SUB = FREC_BASE / PHI;       // 24.72 Hz
+        const FREC_BASE = 40;
 
-        // ----- ESTADO DEL SISTEMA -----
+        // ==================== ESTADO ====================
         let sistemaActivo = false;
-        let motorActivo = true;      // Motor vibración (campo magnético)
-        let audioActivo = true;      // Audio 40 Hz
-        let wakeLock = null;
+        let motorActivo = true;
+        let audioActivo = true;
 
-        // ----- TIEMPO -----
-        let tiempoInicio = 0;
-        let tiempoActual = 0;
-        let intervaloPrincipal = null;
-
-        // ----- AUDIO -----
+        // ==================== AUDIO ====================
         let audioContext = null;
-        let oscBase = null;
-        let oscArmonico = null;
-        let oscSub = null;
-        let gananciaGeneral = null;
-        let gananciaMusica = null;
-        let fuenteMusica = null;
-        let audioBuffer = null;
+        let oscilador = null;
+        let ganancia = null;
+        let tiempoInicio = 0;
 
-        // ----- SENSORES (valores en tiempo real) -----
-        const sensores = {
-            acel_z: 0,
-            giro_beta: 0,
-            mag_heading: 0,
-            luz: -1,
-            prox: -1,
-            timestamp: 0
-        };
+        // ==================== SENSORES ====================
+        let ultimoZ = 0;
+        let bufferRespiracion = [];
+        let frenado = 0;
+        let rpm = 12;
 
-        // ----- REGISTRO PARA CSV -----
-        let datosRegistrados = [];
-        let intervaloMuestreo = null;
+        // ==================== REGISTRO ====================
+        let datos = [];
+        let intervaloSampleo = null;
 
-        // ----- ELEMENTOS DOM -----
+        // ==================== ELEMENTOS DOM ====================
         const estadoEl = document.getElementById('estado');
-        const modosEl = document.getElementById('modos');
-        const volumenEl = document.getElementById('volumen');
-        const tiempoEl = document.getElementById('tiempo');
-        const frecuenciaEl = document.getElementById('frecuencia');
-        const sensorAcelEl = document.getElementById('sensor-acel');
-        const sensorGiroEl = document.getElementById('sensor-giro');
-        const sensorMagEl = document.getElementById('sensor-mag');
-        const sensorLuzEl = document.getElementById('sensor-luz');
-        const sensorProxEl = document.getElementById('sensor-prox');
+        const audioStatusEl = document.getElementById('audio-status');
+        const respiracionEl = document.getElementById('respiracion');
+        const frenoEl = document.getElementById('freno');
         const contadorEl = document.getElementById('contador');
-        const ultimoRegistroEl = document.getElementById('ultimo-registro');
-        const audioFileInput = document.getElementById('audioFile');
 
-        // ===========================================
-        // 1. INICIALIZACIÓN DE SENSORES
-        // ===========================================
-
-        function iniciarSensores() {
-            // Acelerómetro (presión esternón)
-            if (window.DeviceMotionEvent) {
-                window.addEventListener('devicemotion', function(event) {
-                    const acc = event.accelerationIncludingGravity;
-                    if (acc) {
-                        sensores.acel_z = acc.z || 0;
-                        sensorAcelEl.innerText = `ACEL Z: ${sensores.acel_z.toFixed(3)} G (presión esternón)`;
-                    }
-                });
-            }
-
-            // Giroscopio + Magnetómetro (vía orientation)
-            if (window.DeviceOrientationEvent) {
-                window.addEventListener('deviceorientation', function(event) {
-                    sensores.giro_beta = event.beta || 0;
-                    sensorGiroEl.innerText = `GIRO BETA: ${sensores.giro_beta.toFixed(1)}° (horizontalidad)`;
-
-                    if (event.webkitCompassHeading !== undefined) {
-                        sensores.mag_heading = event.webkitCompassHeading;
-                        sensorMagEl.innerText = `MAG HEADING: ${sensores.mag_heading.toFixed(1)}° (campo magnético)`;
-                    }
-                });
-            }
-
-            // Sensor de luz
-            if ('ondevicelight' in window) {
-                window.addEventListener('devicelight', function(event) {
-                    sensores.luz = event.value;
-                    sensorLuzEl.innerText = `LUZ: ${sensores.luz} lux`;
-                });
-            }
-
-            // Sensor de proximidad
-            if ('ondeviceproximity' in window) {
-                window.addEventListener('deviceproximity', function(event) {
-                    sensores.prox = event.value;
-                    sensorProxEl.innerText = `PROX: ${sensores.prox} cm`;
-                });
-            } else if ('onuserproximity' in window) {
-                window.addEventListener('userproximity', function(event) {
-                    sensores.prox = event.near ? 0 : 999;
-                    sensorProxEl.innerText = `PROX: ${sensores.prox === 0 ? 'CONTACTO' : sensores.prox + ' cm'}`;
-                });
-            }
-        }
-
-        // ===========================================
-        // 2. CAMPO MAGNÉTICO POR MOTOR DE VIBRACIÓN
-        // ===========================================
-
-        let cicloMotor = null;
-        let ultimaVibracion = 0;
-
-        function iniciarMotorMagnetico() {
-            if (cicloMotor) clearInterval(cicloMotor);
-
-            const inicioMotor = Date.now();
-
-            cicloMotor = setInterval(() => {
-                if (!sistemaActivo || !motorActivo) return;
-
-                const t = (Date.now() - inicioMotor) / 1000;
-
-                // --- CICLO PRINCIPAL 40 Hz MODULADO POR φ ---
-                // Período base: 25 ms (40 Hz)
-                const fase40Hz = (t * FREC_BASE) % 1;
-
-                // Modulación por Ley de Winter: el umbral varía sinusoidalmente
-                // con frecuencia φ (1.618 Hz)
-                const modPhi = Math.sin(2 * Math.PI * PHI * t);
-                // Umbral entre 0.2 y 0.6 (centrado en 0.4)
-                const umbral = 0.4 + (modPhi * 0.2);
-
-                // --- PULSO PRINCIPAL (campo magnético de 40 Hz) ---
-                if (fase40Hz < umbral) {
-                    // Pulso corto (5-15 ms según fase)
-                    const duracion = 5 + (Math.sin(2 * Math.PI * t) * 5);
-                    navigator.vibrate(Math.round(duracion));
-                    ultimaVibracion = Date.now();
+        // ==================== INICIAR SENSORES ====================
+        if (window.DeviceMotionEvent) {
+            window.addEventListener('devicemotion', (e) => {
+                const acc = e.accelerationIncludingGravity;
+                if (acc) {
+                    ultimoZ = acc.z || 0;
+                    procesarRespiracion(ultimoZ);
                 }
+            });
+        }
 
-                // --- PULSO WINTER (latido a φ/2 = 0.809 Hz) ---
-                const faseWinter = (t * PHI_MEDIO) % 1;
-                if (faseWinter < 0.03) { // 3% del ciclo
-                    // Latido largo: 80 ms
-                    navigator.vibrate(80);
+        function procesarRespiracion(z) {
+            // Mantener buffer de 150 muestras (aprox 15s a 10Hz)
+            bufferRespiracion.push({ valor: z, tiempo: Date.now() });
+            if (bufferRespiracion.length > 150) bufferRespiracion.shift();
+
+            // Analizar cada ~1 segundo
+            if (bufferRespiracion.length % 10 === 0 && bufferRespiracion.length > 50) {
+                calcularFrenado();
+            }
+        }
+
+        function calcularFrenado() {
+            const ahora = Date.now();
+            const ventana = bufferRespiracion.filter(d => ahora - d.tiempo < 15000);
+            if (ventana.length < 20) return;
+
+            // Detectar picos (respiraciones)
+            const valores = ventana.map(d => d.valor);
+            let picos = 0;
+            for (let i = 2; i < valores.length - 2; i++) {
+                if (valores[i] > valores[i-1] && valores[i] > valores[i-2] &&
+                    valores[i] > valores[i+1] && valores[i] > valores[i+2]) {
+                    picos++;
                 }
-
-                // --- ACTUALIZAR DISPLAY DE FRECUENCIA ---
-                if (Math.random() < 0.1) { // Solo 10% de las veces para no saturar
-                    const fInstantanea = FREC_BASE + (2 * modPhi);
-                    frecuenciaEl.innerText = 
-                        `${fInstantanea.toFixed(2)} Hz + φ = ${(fInstantanea * PHI).toFixed(2)} Hz | Pulso: ${PHI_MEDIO.toFixed(3)} Hz`;
-                }
-
-            }, 5); // Sampleo cada 5 ms (200 Hz) para buena resolución
-        }
-
-        function detenerMotorMagnetico() {
-            if (cicloMotor) {
-                clearInterval(cicloMotor);
-                cicloMotor = null;
             }
-            navigator.vibrate(0); // Detener vibración
+
+            // Frecuencia respiratoria (respiraciones por minuto)
+            const duracion = (ahora - ventana[0].tiempo) / 1000 / 60; // minutos
+            rpm = duracion > 0 ? picos / duracion : 12;
+
+            // Calcular frenado (0-100%)
+            if (rpm > 16) {
+                frenado = Math.min(100, (rpm - 16) * 10);
+            } else if (rpm < 10) {
+                frenado = Math.min(50, (10 - rpm) * 10);
+            } else {
+                frenado = 0;
+            }
+
+            // Actualizar UI
+            respiracionEl.innerText = `RESPIRACIÓN: ${rpm.toFixed(1)} rpm`;
+            frenoEl.innerText = `FRENADO: ${frenado.toFixed(0)}%`;
+
+            // Aplicar frenado en tiempo real
+            if (sistemaActivo) aplicarFrenado();
         }
 
-        // ===========================================
-        // 3. AUDIO 40 Hz + ARMÓNICOS
-        // ===========================================
+        // ==================== APLICAR FRENADO ====================
+        function aplicarFrenado() {
+            // Motor (campo magnético)
+            if (motorActivo && frenado > 10) {
+                // Patrón de vibración proporcional al frenado
+                const duracionOn = 20 + frenado; // 20-120 ms
+                const duracionOff = 20;
+                navigator.vibrate([duracionOn, duracionOff]);
+            } else if (motorActivo && frenado <= 10) {
+                // Vibración suave de mantenimiento
+                navigator.vibrate([10, 40]);
+            }
 
-        function initAudio() {
-            if (audioContext) return;
-            audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        }
+            // Audio (si está activo)
+            if (audioActivo && oscilador && ganancia) {
+                // Modulación de frecuencia según frenado
+                const mod = 1 + (frenado / 100) * 0.5; // hasta 1.5x
+                oscilador.frequency.value = FREC_BASE * mod;
 
-        function crearAudioWinter() {
-            if (!audioContext || !audioActivo) return;
-
-            // Detener osciladores anteriores
-            if (oscBase) oscBase.stop();
-            if (oscArmonico) oscArmonico.stop();
-            if (oscSub) oscSub.stop();
-
-            // Ganancia general
-            gananciaGeneral = audioContext.createGain();
-            gananciaGeneral.gain.value = 0.3;
-            gananciaGeneral.connect(audioContext.destination);
-
-            // Oscilador base (40 Hz modulado)
-            oscBase = audioContext.createOscillator();
-            oscBase.type = 'sine';
-            oscBase.frequency.value = FREC_BASE;
-            oscBase.connect(gananciaGeneral);
-
-            // Armónico superior (64.72 Hz)
-            oscArmonico = audioContext.createOscillator();
-            oscArmonico.type = 'sine';
-            oscArmonico.frequency.value = FREC_ARMONICA;
-            const ganArmonico = audioContext.createGain();
-            ganArmonico.gain.value = 0.15;
-            oscArmonico.connect(ganArmonico);
-            ganArmonico.connect(gananciaGeneral);
-
-            // Subarmónico (24.72 Hz)
-            oscSub = audioContext.createOscillator();
-            oscSub.type = 'sine';
-            oscSub.frequency.value = FREC_SUB;
-            const ganSub = audioContext.createGain();
-            ganSub.gain.value = 0.1;
-            oscSub.connect(ganSub);
-            ganSub.connect(gananciaGeneral);
-
-            // Iniciar
-            oscBase.start();
-            oscArmonico.start();
-            oscSub.start();
-
-            // Modulación en tiempo real
-            const inicioAudio = Date.now();
-            const intervaloMod = setInterval(() => {
-                if (!sistemaActivo || !audioActivo || !oscBase) return;
-
-                const t = (Date.now() - inicioAudio) / 1000;
-                const modPhi = Math.sin(2 * Math.PI * PHI * t);
-                const fInstantanea = FREC_BASE + (2 * modPhi);
-
-                oscBase.frequency.value = fInstantanea;
-                oscArmonico.frequency.value = fInstantanea * PHI;
-                oscSub.frequency.value = fInstantanea / PHI;
-
-            }, 50); // 20 Hz de actualización
-
-            // Guardar intervalo para limpiar después
-            if (!window.intervalosAudio) window.intervalosAudio = [];
-            window.intervalosAudio.push(intervaloMod);
-        }
-
-        function detenerAudioWinter() {
-            if (oscBase) { oscBase.stop(); oscBase = null; }
-            if (oscArmonico) { oscArmonico.stop(); oscArmonico = null; }
-            if (oscSub) { oscSub.stop(); oscSub = null; }
-
-            if (window.intervalosAudio) {
-                window.intervalosAudio.forEach(i => clearInterval(i));
-                window.intervalosAudio = [];
+                // Modulación de volumen
+                const volumenBase = 0.3;
+                ganancia.gain.value = volumenBase + (frenado / 100) * 0.5;
             }
         }
 
-        // ===========================================
-        // 4. CARGA DE MÚSICA
-        // ===========================================
-
-        document.addEventListener('keydown', (e) => {
-            if (e.key.toLowerCase() === 'm') {
-                audioFileInput.click();
-            }
-        });
-
-        audioFileInput.addEventListener('change', async (event) => {
-            const file = event.target.files[0];
-            if (!file) return;
+        // ==================== AUDIO ====================
+        function iniciarAudio() {
+            if (!audioActivo) return;
 
             try {
-                initAudio();
-
-                if (fuenteMusica) {
-                    fuenteMusica.stop();
-                    fuenteMusica = null;
+                // Crear contexto si no existe
+                if (!audioContext) {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 }
 
-                const arrayBuffer = await file.arrayBuffer();
-                audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                // Reanudar si está suspendido
+                if (audioContext.state === 'suspended') {
+                    audioContext.resume();
+                }
 
-                fuenteMusica = audioContext.createBufferSource();
-                fuenteMusica.buffer = audioBuffer;
-                fuenteMusica.loop = true;
+                // Crear oscilador y ganancia si no existen
+                if (!oscilador) {
+                    oscilador = audioContext.createOscillator();
+                    oscilador.type = 'sine';
+                    oscilador.frequency.value = FREC_BASE;
 
-                gananciaMusica = audioContext.createGain();
-                gananciaMusica.gain.value = 0.2;
+                    ganancia = audioContext.createGain();
+                    ganancia.gain.value = 0.3;
 
-                fuenteMusica.connect(gananciaMusica);
-                gananciaMusica.connect(audioContext.destination);
+                    oscilador.connect(ganancia);
+                    ganancia.connect(audioContext.destination);
+                    oscilador.start();
+                }
 
-                fuenteMusica.start();
-
-                modosEl.innerText = `MOTOR: ${motorActivo ? 'ACTIVO' : 'INACTIVO'} | AUDIO: ${audioActivo ? 'ACTIVO' : 'INACTIVO'} | MÚSICA: ${file.name.substring(0, 20)}`;
-            } catch (error) {
-                modosEl.innerText = `ERROR AL CARGAR MÚSICA`;
+                audioStatusEl.innerText = 'AUDIO: ACTIVO';
+            } catch (e) {
+                audioStatusEl.innerText = 'AUDIO: ERROR';
+                console.error(e);
             }
-        });
+        }
 
-        // ===========================================
-        // 5. REGISTRO PARA CSV
-        // ===========================================
+        function detenerAudio() {
+            if (oscilador) {
+                oscilador.stop();
+                oscilador = null;
+            }
+            if (audioContext) {
+                audioContext.close();
+                audioContext = null;
+            }
+            audioStatusEl.innerText = 'AUDIO: INACTIVO';
+        }
 
-        function iniciarMuestreo() {
-            if (intervaloMuestreo) clearInterval(intervaloMuestreo);
-
-            intervaloMuestreo = setInterval(() => {
+        // ==================== REGISTRO CSV ====================
+        function iniciarRegistro() {
+            if (intervaloSampleo) clearInterval(intervaloSampleo);
+            intervaloSampleo = setInterval(() => {
                 if (!sistemaActivo) return;
-
-                const ahora = Date.now();
-                const tiempoRel = (ahora - tiempoInicio) / 1000;
-
-                // Calcular frecuencia instantánea
-                const modPhi = Math.sin(2 * Math.PI * PHI * tiempoRel);
-                const fInstantanea = FREC_BASE + (2 * modPhi);
-
-                const registro = {
-                    timestamp: ahora,
-                    tiempo: tiempoRel,
-                    acel_z: sensores.acel_z,
-                    giro_beta: sensores.giro_beta,
-                    mag_heading: sensores.mag_heading,
-                    luz: sensores.luz,
-                    prox: sensores.prox,
-                    frecuencia_base: fInstantanea,
-                    frecuencia_armonica: fInstantanea * PHI,
-                    frecuencia_sub: fInstantanea / PHI,
-                    motor_activo: motorActivo ? 1 : 0,
-                    audio_activo: audioActivo ? 1 : 0
-                };
-
-                datosRegistrados.push(registro);
-                contadorEl.innerText = `REGISTROS: ${datosRegistrados.length}`;
-
-                // Actualizar último registro (resumido)
-                ultimoRegistroEl.innerText = 
-                    `t=${tiempoRel.toFixed(1)}s | Z=${sensores.acel_z.toFixed(2)}G | β=${sensores.giro_beta.toFixed(0)}° | f=${fInstantanea.toFixed(2)}Hz`;
-
-            }, 1000); // Cada segundo
+                datos.push({
+                    t: (Date.now() - tiempoInicio) / 1000,
+                    rpm: rpm,
+                    frenado: frenado,
+                    z: ultimoZ
+                });
+                contadorEl.innerText = `REGISTROS: ${datos.length}`;
+            }, 1000);
         }
 
         function guardarCSV() {
-            if (datosRegistrados.length === 0) {
-                alert('No hay datos');
-                return;
-            }
-
-            const columnas = [
-                'timestamp', 'tiempo', 'acel_z', 'giro_beta', 'mag_heading',
-                'luz', 'prox', 'frecuencia_base', 'frecuencia_armonica',
-                'frecuencia_sub', 'motor_activo', 'audio_activo'
-            ];
-
-            let csv = columnas.join(',') + '\n';
-
-            datosRegistrados.forEach(r => {
-                const fila = columnas.map(col => {
-                    const val = r[col];
-                    if (typeof val === 'number') return val.toFixed(6);
-                    return val;
-                }).join(',');
-                csv += fila + '\n';
-            });
-
-            const blob = new Blob([csv], { type: 'text/csv' });
+            if (datos.length === 0) return alert('No hay datos');
+            let csv = 'tiempo,rpm,frenado,acel_z\n';
+            datos.forEach(d => csv += `${d.t.toFixed(1)},${d.rpm.toFixed(1)},${d.frenado},${d.z.toFixed(3)}\n`);
+            const blob = new Blob([csv], {type: 'text/csv'});
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.download = `winter_${Date.now()}.csv`;
             a.href = url;
             a.click();
-
-            estadoEl.innerText = `CSV GUARDADO - ${datosRegistrados.length} registros`;
         }
 
-        function limpiarDatos() {
-            datosRegistrados = [];
-            contadorEl.innerText = 'REGISTROS: 0';
-            ultimoRegistroEl.innerText = '--';
-        }
-
-        // ===========================================
-        // 6. WAKE LOCK
-        // ===========================================
-
-        async function activarWakeLock() {
-            try {
-                if ('wakeLock' in navigator) {
-                    wakeLock = await navigator.wakeLock.request('screen');
-                }
-            } catch (err) {
-                console.log('Wake Lock no disponible');
-            }
-        }
-
-        function liberarWakeLock() {
-            if (wakeLock) {
-                wakeLock.release();
-                wakeLock = null;
-            }
-        }
-
-        // ===========================================
-        // 7. CONTROL PRINCIPAL
-        // ===========================================
-
-        function iniciarTodo() {
+        // ==================== CONTROL PRINCIPAL ====================
+        function iniciarSistema() {
             if (sistemaActivo) return;
-
-            tiempoInicio = Date.now();
             sistemaActivo = true;
+            tiempoInicio = Date.now();
 
-            // Iniciar sensores (si no lo estaban ya)
-            iniciarSensores();
+            // Activar audio
+            if (audioActivo) iniciarAudio();
 
-            // Iniciar motor magnético
-            if (motorActivo) iniciarMotorMagnetico();
-
-            // Iniciar audio
-            if (audioActivo) {
-                initAudio();
-                if (audioContext.state === 'suspended') audioContext.resume();
-                crearAudioWinter();
+            // Activar wake lock
+            if (navigator.wakeLock) {
+                navigator.wakeLock.request('screen').catch(() => {});
             }
 
-            // Wake lock
-            activarWakeLock();
-
-            // Muestreo
-            iniciarMuestreo();
-
-            // Intervalo principal (actualizar tiempo)
-            intervaloPrincipal = setInterval(() => {
-                if (!sistemaActivo) return;
-                tiempoActual = (Date.now() - tiempoInicio) / 1000;
-                tiempoEl.innerText = `TIEMPO: ${tiempoActual.toFixed(1)} s`;
-            }, 100);
-
+            iniciarRegistro();
             estadoEl.innerText = 'SISTEMA: ACTIVO';
         }
 
-        function detenerTodo() {
+        function detenerSistema() {
             sistemaActivo = false;
-
-            detenerMotorMagnetico();
-            detenerAudioWinter();
-            liberarWakeLock();
-
-            if (intervaloPrincipal) {
-                clearInterval(intervaloPrincipal);
-                intervaloPrincipal = null;
-            }
-
-            if (intervaloMuestreo) {
-                clearInterval(intervaloMuestreo);
-                intervaloMuestreo = null;
-            }
-
+            detenerAudio();
+            navigator.vibrate(0);
+            if (intervaloSampleo) clearInterval(intervaloSampleo);
             estadoEl.innerText = 'SISTEMA: INACTIVO';
         }
 
-        // ===========================================
-        // 8. CONTROL POR TECLADO
-        // ===========================================
-
+        // ==================== TECLADO ====================
         document.addEventListener('keydown', (e) => {
             const tecla = e.key.toLowerCase();
 
-            switch(tecla) {
+            switch (tecla) {
                 case 'enter':
-                    if (sistemaActivo) detenerTodo();
-                    else iniciarTodo();
+                    if (sistemaActivo) detenerSistema();
+                    else iniciarSistema();
                     break;
 
                 case 'v':
                     motorActivo = !motorActivo;
-                    if (sistemaActivo) {
-                        if (motorActivo) iniciarMotorMagnetico();
-                        else detenerMotorMagnetico();
-                    }
-                    modosEl.innerText = `MOTOR: ${motorActivo ? 'ACTIVO' : 'INACTIVO'} | AUDIO: ${audioActivo ? 'ACTIVO' : 'INACTIVO'}`;
+                    if (!motorActivo) navigator.vibrate(0);
                     break;
 
                 case 'a':
                     audioActivo = !audioActivo;
                     if (sistemaActivo) {
-                        if (audioActivo) {
-                            initAudio();
-                            if (audioContext.state === 'suspended') audioContext.resume();
-                            crearAudioWinter();
-                        } else {
-                            detenerAudioWinter();
-                        }
+                        if (audioActivo) iniciarAudio();
+                        else detenerAudio();
                     }
-                    modosEl.innerText = `MOTOR: ${motorActivo ? 'ACTIVO' : 'INACTIVO'} | AUDIO: ${audioActivo ? 'ACTIVO' : 'INACTIVO'}`;
                     break;
 
                 case '+':
                 case '=':
-                    if (gananciaGeneral) {
-                        let vol = gananciaGeneral.gain.value + 0.1;
-                        if (vol > 1) vol = 1;
-                        gananciaGeneral.gain.value = vol;
-                        volumenEl.innerText = `VOLUMEN: ${Math.round(vol * 100)}%`;
-                    }
+                    if (ganancia) ganancia.gain.value = Math.min(1, ganancia.gain.value + 0.1);
                     break;
 
                 case '-':
-                    if (gananciaGeneral) {
-                        let vol = gananciaGeneral.gain.value - 0.1;
-                        if (vol < 0) vol = 0;
-                        gananciaGeneral.gain.value = vol;
-                        volumenEl.innerText = `VOLUMEN: ${Math.round(vol * 100)}%`;
-                    }
+                    if (ganancia) ganancia.gain.value = Math.max(0, ganancia.gain.value - 0.1);
                     break;
 
                 case 's':
                     guardarCSV();
                     break;
 
-                case 'c':
-                    limpiarDatos();
-                    break;
-
-                case 'm':
-                    audioFileInput.click();
+                case 'r':
+                    // Reiniciar audio
+                    detenerAudio();
+                    if (sistemaActivo && audioActivo) iniciarAudio();
                     break;
             }
         });
 
-        // ===========================================
-        // 9. INICIALIZACIÓN
-        // ===========================================
-
-        console.log(`
-╔══════════════════════════════════════════════════════════╗
-║  WINTER CORE v3.0 - LISTO                                ║
-║  Presiona ENTER para iniciar                             ║
-╚══════════════════════════════════════════════════════════╝
-        `);
-
-        // Iniciar sensores desde el principio para tener datos
-        iniciarSensores();
+        // ==================== INICIALIZACIÓN ====================
+        console.log('Sistema listo. Presiona ENTER para iniciar.');
     </script>
 </body>
 </html>
