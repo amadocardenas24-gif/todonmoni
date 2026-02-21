@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>WINTER · BINAURAL</title>
+    <title>WINTER · PINEAL</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
         * {
@@ -11,7 +11,7 @@
             -webkit-tap-highlight-color: transparent;
         }
         body {
-            background: #0a120a;
+            background: #0a120a; /* Verde oscuro base */
             color: #b0ffb0;
             font-family: 'Courier New', monospace;
             margin: 0;
@@ -20,6 +20,17 @@
             display: flex;
             flex-direction: column;
             justify-content: center;
+            transition: background-color 1s ease;
+        }
+        /* Estado armónico: violeta con pulso a 8 Hz */
+        body.estado-armonico {
+            background: radial-gradient(circle, #2e0854, #000000);
+            animation: pulsoVioleta 0.125s infinite; /* 8 Hz = 125ms ciclo */
+        }
+        @keyframes pulsoVioleta {
+            0% { filter: brightness(1); }
+            50% { filter: brightness(1.3); }
+            100% { filter: brightness(1); }
         }
         .container {
             max-width: 500px;
@@ -42,6 +53,13 @@
             border: 3px solid #3a8;
             margin: 20px 0;
             box-shadow: 0 0 30px #1a4a1a;
+            transition: all 0.5s;
+        }
+        body.estado-armonico .tiempo {
+            background: #2a1a3a;
+            border-color: #a56eff;
+            color: #e0b0ff;
+            box-shadow: 0 0 30px #6a2a8a;
         }
         .boton-grande {
             background: #3a6a3a;
@@ -75,16 +93,41 @@
             display: flex;
             justify-content: space-around;
             font-size: 1.2rem;
+            transition: all 0.5s;
+        }
+        body.estado-armonico .indicadores {
+            background: #2a1a3a;
+            border-color: #a56eff;
+            color: #e0b0ff;
         }
         .valor {
             color: #8f8;
             font-weight: bold;
         }
+        body.estado-armonico .valor {
+            color: #d8a0ff;
+        }
         .cardiaco { color: #ff88aa; }
-        .armonia {
-            background: #2a4a2a;
-            border-color: #8f8;
-            color: #8f8;
+        .barra-z {
+            background: #1a2a1a;
+            border-radius: 20px;
+            height: 30px;
+            margin: 10px 0;
+            border: 2px solid #3a8;
+            overflow: hidden;
+            transition: all 0.5s;
+        }
+        body.estado-armonico .barra-z {
+            border-color: #a56eff;
+        }
+        .nivel-z {
+            width: 50%;
+            height: 100%;
+            background: #4a8;
+            transition: width 0.2s, background 0.5s;
+        }
+        body.estado-armonico .nivel-z {
+            background: #b07cff;
         }
         .alerta { 
             background: #3a2a2a;
@@ -101,7 +144,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>🌿 WINTER · BINAURAL</h1>
+        <h1>🌿 WINTER · PINEAL</h1>
         
         <div class="tiempo" id="cuentaAtras">21:00</div>
         
@@ -113,8 +156,13 @@
             <span>⚖️ <span id="valorZ" class="valor">0.0</span></span>
         </div>
         
+        <!-- Manómetro de silencio (barra Z) -->
+        <div class="barra-z">
+            <div class="nivel-z" id="barraZ" style="width:50%"></div>
+        </div>
+        
         <div class="indicadores armonia" id="indicadorArmonia" style="display:none;">
-            ✨ ESTADO DE ARMONÍA ✨
+            ✨ ACTIVACIÓN PINEAL ✨
         </div>
         
         <div class="indicadores alerta" id="alertaDespegue">
@@ -122,7 +170,7 @@
         </div>
         
         <footer>
-            Apoya sobre el esternón · Tono binaural 40 Hz · Usa auriculares
+            Apoya sobre el esternón · El violeta aparece con la calma total
         </footer>
     </div>
 
@@ -131,13 +179,20 @@
         // CONSTANTES
         // ===========================================
         const PHI = 1.618033988749895;
-        const FRECUENCIA_BINAURAL = 40; // Hz (diferencia entre oídos)
-        // Para obtener 40 Hz, usamos 200 Hz (izquierdo) y 160 Hz (derecho)
-        const FREC_IZQ = 200;
-        const FREC_DER = 160;
+        const FRECUENCIA_BINAURAL_RELAJACION = 40; // Hz
+        const FREC_IZQ_RELAJACION = 200;
+        const FREC_DER_RELAJACION = 160;
+        
+        const FREC_IZQ_PINEAL = 436;
+        const FREC_DER_PINEAL = 428; // Diferencia 8 Hz (Resonancia Schumann)
+        
         const DURACION_SESION = 21 * 60; // 21 minutos
         const INTERVALO_PULSO = 50; // ms
         const INTERVALO_REGISTRO = 1000; // 1 segundo
+        const UMBRAL_RPM_ARMONIA = 10; // rpm menor que 10
+        const UMBRAL_VARIANZA_ARMONIA = 0.03; // varianza de Z muy baja
+        const Z_IDEAL = -9.8; // punto de apoyo perfecto (gravedad)
+        const TOLERANCIA_Z = 0.5; // desviación permitida antes de alertar
 
         // ===========================================
         // ESTADO
@@ -149,17 +204,24 @@
         let audioCtx = null;
         let oscIzq = null, oscDer = null;
         let gananciaIzq = null, gananciaDer = null;
-        let merger = null; // para combinar en estéreo
+        let merger = null;
+        
+        // Estado de audio actual
+        let modoPinealActivo = false; // true cuando estamos en violeta
+        
+        // Para transición suave de frecuencias
+        let targetFreqIzq = FREC_IZQ_RELAJACION;
+        let targetFreqDer = FREC_DER_RELAJACION;
+        let intervaloTransicion = null;
         
         // Sensores
         let ultimoX = 0, ultimoY = 0, ultimoZ = 0;
         let bufferZ = [];
-        let ultimoPicoTiempo = 0;
-        let intervalosRR = [];
         let bpmActual = 0;
         let rpmActual = 0;
+        let varianzaZ = 0;
         let enAlerta = false;
-        let armoniaActiva = false;
+        let armoniaActiva = false; // coincide con el violeta
 
         // Registro CSV
         let registros = [];
@@ -171,8 +233,10 @@
         const valorBPM = document.getElementById('valorBPM');
         const valorRPM = document.getElementById('valorRPM');
         const valorZ = document.getElementById('valorZ');
+        const barraZ = document.getElementById('barraZ');
         const indicadorArmonia = document.getElementById('indicadorArmonia');
         const alertaDespegue = document.getElementById('alertaDespegue');
+        const bodyEl = document.body;
 
         // ===========================================
         // FUNCIONES DE TIEMPO
@@ -202,19 +266,20 @@
         }
 
         // ===========================================
-        // SONIDO DE ARMONÍA
+        // SONIDOS DE FEEDBACK
         // ===========================================
-        function sonidoArmonia() {
+        function sonidoGota() {
             if (!audioCtx) return;
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
             osc.type = 'sine';
-            osc.frequency.value = 880;
-            gain.gain.value = 0.2;
+            osc.frequency.value = 600; // frecuencia de gota
+            gain.gain.value = 0.1;
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
             osc.connect(gain);
             gain.connect(audioCtx.destination);
             osc.start();
-            osc.stop(audioCtx.currentTime + 0.15);
+            osc.stop(audioCtx.currentTime + 0.2);
         }
 
         // ===========================================
@@ -229,7 +294,26 @@
                         ultimoY = acc.y || 0;
                         ultimoZ = acc.z || 0;
                         valorZ.innerText = ultimoZ.toFixed(1);
+                        
+                        // Actualizar barra de silencio (centro en -9.8)
+                        let porcentaje = ((ultimoZ + 10.3) / 1.0) * 100; // mapeo aproximado
+                        porcentaje = Math.max(0, Math.min(100, porcentaje));
+                        barraZ.style.width = porcentaje + '%';
 
+                        // Alerta de reubicación (solo si estamos activos y no en violeta)
+                        if (sistemaActivo && !armoniaActiva) {
+                            const desviacion = Math.abs(ultimoZ - Z_IDEAL);
+                            if (desviacion > TOLERANCIA_Z) {
+                                // Vibración corta o sonido de gota
+                                if (navigator.vibrate) {
+                                    navigator.vibrate(30);
+                                } else {
+                                    sonidoGota();
+                                }
+                            }
+                        }
+
+                        // Detectar despegue extremo
                         if (sistemaActivo) {
                             const nuevaAlerta = (ultimoZ < 5.0 || ultimoZ > 15.0);
                             if (nuevaAlerta && !enAlerta) {
@@ -241,6 +325,7 @@
                             }
                         }
 
+                        // Guardar para análisis
                         bufferZ.push({ valor: ultimoZ, tiempo: Date.now() });
                         if (bufferZ.length > 300) bufferZ.shift();
                     }
@@ -248,7 +333,7 @@
             }
         }
 
-        // Análisis de BPM y RPM (cada 2 segundos)
+        // Análisis de BPM, RPM y varianza (cada 2 segundos)
         function iniciarAnalisis() {
             setInterval(() => {
                 if (!sistemaActivo) return;
@@ -270,6 +355,11 @@
                 const duracionMin = (ahora - ventana[0].tiempo) / 60000;
                 rpmActual = duracionMin > 0 ? Math.round(picosResp / duracionMin) : 12;
                 valorRPM.innerText = rpmActual;
+
+                // Varianza de Z (estabilidad)
+                const media = valores.reduce((a, b) => a + b, 0) / valores.length;
+                const sumaCuadrados = valores.reduce((a, b) => a + Math.pow(b - media, 2), 0);
+                varianzaZ = sumaCuadrados / valores.length;
 
                 // BPM (cardíaco) con filtro pasa altas
                 const mediaMovil = [];
@@ -301,26 +391,60 @@
                     bpmActual = bpmEstimado;
                     valorBPM.innerText = bpmActual;
                 }
+
+                // Evaluar armonía según los nuevos criterios estrictos
+                const armonia = (rpmActual < UMBRAL_RPM_ARMONIA && varianzaZ < UMBRAL_VARIANZA_ARMONIA);
+                
+                if (armonia && !armoniaActiva) {
+                    // Entramos en estado armónico (violeta + frecuencias pineales)
+                    activarModoPineal();
+                } else if (!armonia && armoniaActiva) {
+                    // Salimos del estado armónico (vuelta a verde y 40 Hz)
+                    desactivarModoPineal();
+                }
             }, 2000);
         }
 
         // ===========================================
-        // DETECCIÓN DE ARMONÍA
+        // CAMBIO DE MODO (ARMONÍA / NO ARMONÍA)
         // ===========================================
-        function evaluarArmonia() {
-            if (!sistemaActivo) return false;
-            const bpmOk = bpmActual >= 50 && bpmActual <= 70;
-            const rpmOk = rpmActual >= 6 && rpmActual <= 12;
-            const ahora = Date.now();
-            const ventanaZ = bufferZ.filter(d => ahora - d.tiempo < 10000);
-            let varianza = 0;
-            if (ventanaZ.length > 10) {
-                const media = ventanaZ.reduce((a, b) => a + b.valor, 0) / ventanaZ.length;
-                const suma = ventanaZ.reduce((a, b) => a + Math.pow(b.valor - media, 2), 0);
-                varianza = suma / ventanaZ.length;
+        function activarModoPineal() {
+            if (armoniaActiva) return;
+            armoniaActiva = true;
+            
+            // Cambiar clase del body para violeta y pulso 8 Hz
+            bodyEl.classList.add('estado-armonico');
+            indicadorArmonia.style.display = 'flex';
+            
+            // Establecer frecuencias objetivo para transición
+            targetFreqIzq = FREC_IZQ_PINEAL;
+            targetFreqDer = FREC_DER_PINEAL;
+            
+            // Iniciar transición suave de 3 segundos
+            if (audioCtx && oscIzq && oscDer) {
+                const ahora = audioCtx.currentTime;
+                oscIzq.frequency.linearRampToValueAtTime(targetFreqIzq, ahora + 3);
+                oscDer.frequency.linearRampToValueAtTime(targetFreqDer, ahora + 3);
             }
-            const estabilidadOk = varianza < 0.1;
-            return bpmOk && rpmOk && estabilidadOk;
+        }
+
+        function desactivarModoPineal() {
+            if (!armoniaActiva) return;
+            armoniaActiva = false;
+            
+            // Quitar clase violeta
+            bodyEl.classList.remove('estado-armonico');
+            indicadorArmonia.style.display = 'none';
+            
+            // Volver a frecuencias de relajación (40 Hz)
+            targetFreqIzq = FREC_IZQ_RELAJACION;
+            targetFreqDer = FREC_DER_RELAJACION;
+            
+            if (audioCtx && oscIzq && oscDer) {
+                const ahora = audioCtx.currentTime;
+                oscIzq.frequency.linearRampToValueAtTime(targetFreqIzq, ahora + 3);
+                oscDer.frequency.linearRampToValueAtTime(targetFreqDer, ahora + 3);
+            }
         }
 
         // ===========================================
@@ -332,15 +456,14 @@
             }
             if (audioCtx.state === 'suspended') audioCtx.resume();
 
-            // Crear osciladores izquierdo y derecho
+            // Crear osciladores con frecuencias iniciales (relajación)
             oscIzq = audioCtx.createOscillator();
             oscDer = audioCtx.createOscillator();
             oscIzq.type = 'sine';
             oscDer.type = 'sine';
-            oscIzq.frequency.value = FREC_IZQ;
-            oscDer.frequency.value = FREC_DER;
+            oscIzq.frequency.value = FREC_IZQ_RELAJACION;
+            oscDer.frequency.value = FREC_DER_RELAJACION;
 
-            // Ganancia individual (para luego aplicar el mismo pulso a ambos)
             gananciaIzq = audioCtx.createGain();
             gananciaDer = audioCtx.createGain();
             gananciaIzq.gain.value = 0;
@@ -349,16 +472,15 @@
             oscIzq.connect(gananciaIzq);
             oscDer.connect(gananciaDer);
 
-            // Mezclador estéreo (canal izquierdo = entrada 0, derecho = entrada 1)
             merger = audioCtx.createChannelMerger(2);
-            gananciaIzq.connect(merger, 0, 0); // salida de gananciaIzq al canal 0 del merger
-            gananciaDer.connect(merger, 0, 1); // salida de gananciaDer al canal 1 del merger
+            gananciaIzq.connect(merger, 0, 0);
+            gananciaDer.connect(merger, 0, 1);
             merger.connect(audioCtx.destination);
 
             oscIzq.start();
             oscDer.start();
 
-            // Modulación de pulso común
+            // Modulación de pulso común (Ley de Winter)
             const inicioMod = Date.now();
             const intervaloMod = setInterval(() => {
                 if (!sistemaActivo) {
@@ -370,14 +492,18 @@
                 const ciclo = PHI;
                 const fase = (t % ciclo) / ciclo;
 
-                // Pulso logarítmico idéntico en ambos canales
+                // Pulso logarítmico (ataque rápido, decaimiento lento)
                 let amplitud = Math.exp(-fase * 8);
                 amplitud = 0.05 + amplitud * 0.45;
                 gananciaIzq.gain.value = amplitud;
                 gananciaDer.gain.value = amplitud;
 
-                // Vibración sincronizada
-                if (fase < 0.1 && navigator.vibrate) {
+                // Vibración sincronizada (firma de Winter)
+                // Ciclo completo = PHI segundos
+                // Tiempo vibración = ciclo * 0.618, pausa = ciclo * 0.382
+                // Aplicamos en cada fase < 0.618
+                if (fase < 0.618 && navigator.vibrate) {
+                    // vibración continua durante la fase activa
                     navigator.vibrate(50);
                 }
             }, INTERVALO_PULSO);
@@ -394,16 +520,7 @@
                 if (!sistemaActivo) return;
 
                 const tiempoRel = (Date.now() - tiempoInicio) / 1000;
-                const armonia = evaluarArmonia() ? 1 : 0;
-
-                if (armonia && !armoniaActiva) {
-                    armoniaActiva = true;
-                    indicadorArmonia.style.display = 'flex';
-                    sonidoArmonia();
-                } else if (!armonia && armoniaActiva) {
-                    armoniaActiva = false;
-                    indicadorArmonia.style.display = 'none';
-                }
+                const armonia = armoniaActiva ? 1 : 0;
 
                 registros.push({
                     t: tiempoRel.toFixed(2),
@@ -412,6 +529,7 @@
                     z: ultimoZ.toFixed(3),
                     bpm: bpmActual,
                     rpm: rpmActual,
+                    varianza: varianzaZ.toFixed(4),
                     armonia: armonia
                 });
             }, INTERVALO_REGISTRO);
@@ -422,15 +540,15 @@
         // ===========================================
         function descargarCSV() {
             if (registros.length === 0) return;
-            let csv = 'tiempo,x,y,z,bpm,rpm,armonia\n';
+            let csv = 'tiempo,x,y,z,bpm,rpm,varianza,armonia\n';
             registros.forEach(r => {
-                csv += `${r.t},${r.x},${r.y},${r.z},${r.bpm},${r.rpm},${r.armonia}\n`;
+                csv += `${r.t},${r.x},${r.y},${r.z},${r.bpm},${r.rpm},${r.varianza},${r.armonia}\n`;
             });
             const blob = new Blob([csv], { type: 'text/csv' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `winter_binaural_${new Date().toISOString().slice(0,19).replace(/:/g, '-')}.csv`;
+            a.download = `winter_pineal_${new Date().toISOString().slice(0,19).replace(/:/g, '-')}.csv`;
             a.click();
             URL.revokeObjectURL(url);
         }
@@ -449,6 +567,7 @@
             tiempoInicio = Date.now();
             registros = [];
             armoniaActiva = false;
+            modoPinealActivo = false;
 
             btnIniciar.innerText = 'DETENER';
             btnIniciar.classList.add('activo');
@@ -510,6 +629,7 @@
             cuentaAtrasEl.innerText = formatearTiempo(DURACION_SESION);
             alertaDespegue.style.display = 'none';
             indicadorArmonia.style.display = 'none';
+            bodyEl.classList.remove('estado-armonico');
             enAlerta = false;
         }
 
