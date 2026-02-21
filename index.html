@@ -2,91 +2,206 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>WINTER - AUDIO SEGURO</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WINTER AVANZADO</title>
+    <style>
+        body {
+            background: #000;
+            color: #0f0;
+            font-family: 'Courier New', monospace;
+            text-align: center;
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            transition: background-color 0.5s;
+        }
+        #valor {
+            font-size: 5em;
+            font-weight: bold;
+            transition: 0.1s;
+        }
+        .pulso-visual {
+            width: 100px;
+            height: 100px;
+            background: #0f0;
+            border-radius: 50%;
+            margin: 20px auto;
+            transition: transform 0.8s;
+            box-shadow: 0 0 30px #0f0;
+        }
+        button {
+            padding: 15px 30px;
+            font-size: 1.2em;
+            background: #111;
+            color: #0f0;
+            border: 2px solid #0f0;
+            border-radius: 50px;
+            cursor: pointer;
+            margin: 10px;
+            font-family: 'Courier New', monospace;
+        }
+        button:hover {
+            background: #0f0;
+            color: #000;
+        }
+        #estado {
+            margin: 10px;
+            font-size: 1.2em;
+        }
+        #modo {
+            margin: 5px;
+            color: #ff0;
+        }
+        #info {
+            font-size: 0.9em;
+            opacity: 0.8;
+            white-space: pre-wrap;
+        }
+    </style>
 </head>
-<body style="background:#000; color:#0f0; font-family:monospace; padding:10px;">
-    <pre>
-╔════════════════════════════════════════╗
-║  WINTER v4.1 - AUDIO GARANTIZADO      ║
-║  φ = 1.618 | 40 Hz + γ                 ║
-╠════════════════════════════════════════╣
-║  [ENTER] INICIAR/DETENER TODO          ║
-║  [V] Motor ON/OFF                      ║
-║  [A] Audio ON/OFF                      ║
-║  [+/-] Volumen                         ║
-║  [S] Guardar CSV                       ║
-║  [R] Reiniciar audio (si no suena)     ║
-╚════════════════════════════════════════╝
-    </pre>
-    <pre id="estado">SISTEMA: INACTIVO</pre>
-    <pre id="audio-status">AUDIO: --</pre>
-    <pre id="respiracion">RESPIRACIÓN: --</pre>
-    <pre id="freno">FRENADO: 0%</pre>
-    <pre id="contador">REGISTROS: 0</pre>
+<body>
+
+    <div id="estado">SISTEMA INACTIVO</div>
+    <div id="modo">MODO: NORMAL (432 Hz)</div>
+    <div id="valor">0.0</div>
+    <p>PRESIÓN / MOVIMIENTO (MANÓMETRO)</p>
+    <div id="circulo" class="pulso-visual"></div>
+    <div id="info">[ENTER] Iniciar • [M] Modo • [V] Vibración • [A] Audio • [+/-] Vol • [S] CSV</div>
+    <button onclick="toggleSistema()">INICIAR SISTEMA</button>
 
     <script>
-        // ==================== CONSTANTES ====================
+        // ===========================================
+        // CONSTANTES Y CONFIGURACIÓN
+        // ===========================================
         const PHI = 1.618033988749895;
-        const FREC_BASE = 40;
+        const FREC_BASE = 432; // Hz (puede variar según modo)
+        const MODOS = [
+            { nombre: "NORMAL",   frec: 432,   motor: true,  desc: "Base 432 Hz + pulso φ" },
+            { nombre: "SCHULTZ",  frec: 40,    motor: true,  desc: "40 Hz + fases autógenas" },
+            { nombre: "SUEÑO",    frec: 4,     motor: false, desc: "Delta (4 Hz) para dormir" },
+            { nombre: "CONCENTRACIÓN", frec: 16, motor: false, desc: "Beta (16 Hz) enfoque" },
+            { nombre: "SOLFEGGIO", frec: 528,  motor: true,  desc: "528 Hz reparación" }
+        ];
+        let indiceModo = 0;
 
-        // ==================== ESTADO ====================
+        // ===========================================
+        // VARIABLES DE ESTADO
+        // ===========================================
         let sistemaActivo = false;
         let motorActivo = true;
         let audioActivo = true;
+        let wakeLock = null;
 
-        // ==================== AUDIO ====================
-        let audioContext = null;
-        let oscilador = null;
-        let ganancia = null;
-        let tiempoInicio = 0;
+        // ===========================================
+        // AUDIO
+        // ===========================================
+        let audioCtx = null;
+        let osc = null;
+        let gain = null;
 
-        // ==================== SENSORES ====================
+        // ===========================================
+        // SENSORES Y ANÁLISIS DE RESPIRACIÓN
+        // ===========================================
         let ultimoZ = 0;
-        let bufferRespiracion = [];
-        let frenado = 0;
-        let rpm = 12;
+        let bufferZ = [];
+        const BUFFER_SIZE = 150; // 15 segundos a 10 Hz aprox
+        let rpm = 12; // respiraciones por minuto estimadas
+        let frenado = 0; // 0-100%
 
-        // ==================== REGISTRO ====================
-        let datos = [];
-        let intervaloSampleo = null;
+        // ===========================================
+        // REGISTRO CSV
+        // ===========================================
+        let datosRegistro = [];
+        let tiempoInicio = 0;
+        let intervaloRegistro = null;
 
-        // ==================== ELEMENTOS DOM ====================
+        // ===========================================
+        // ELEMENTOS DOM
+        // ===========================================
         const estadoEl = document.getElementById('estado');
-        const audioStatusEl = document.getElementById('audio-status');
-        const respiracionEl = document.getElementById('respiracion');
-        const frenoEl = document.getElementById('freno');
-        const contadorEl = document.getElementById('contador');
+        const modoEl = document.getElementById('modo');
+        const valorEl = document.getElementById('valor');
+        const circuloEl = document.getElementById('circulo');
+        const infoEl = document.getElementById('info');
 
-        // ==================== INICIAR SENSORES ====================
+        // ===========================================
+        // FUNCIONES DE AUDIO
+        // ===========================================
+        function initAudio() {
+            if (!audioActivo) return;
+            try {
+                if (!audioCtx) {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+                if (!osc) {
+                    osc = audioCtx.createOscillator();
+                    osc.type = 'sine';
+                    osc.frequency.value = MODOS[indiceModo].frec;
+
+                    gain = audioCtx.createGain();
+                    gain.gain.value = 0.3; // volumen inicial
+
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start();
+                }
+            } catch (e) {
+                console.warn("Error de audio:", e);
+            }
+        }
+
+        function stopAudio() {
+            if (osc) {
+                osc.stop();
+                osc = null;
+            }
+            if (audioCtx) {
+                audioCtx.close();
+                audioCtx = null;
+            }
+        }
+
+        // ===========================================
+        // SENSORES
+        // ===========================================
         if (window.DeviceMotionEvent) {
-            window.addEventListener('devicemotion', (e) => {
-                const acc = e.accelerationIncludingGravity;
+            window.addEventListener('devicemotion', (event) => {
+                const acc = event.accelerationIncludingGravity;
                 if (acc) {
-                    ultimoZ = acc.z || 0;
-                    procesarRespiracion(ultimoZ);
+                    const x = acc.x || 0;
+                    const y = acc.y || 0;
+                    const z = acc.z || 0;
+                    const total = Math.sqrt(x*x + y*y + z*z).toFixed(1);
+                    valorEl.innerText = total;
+
+                    // Guardar Z (presión) para análisis respiratorio
+                    ultimoZ = z;
+                    bufferZ.push({ valor: z, tiempo: Date.now() });
+                    if (bufferZ.length > BUFFER_SIZE) bufferZ.shift();
+
+                    // Cambiar color de fondo según presión (efecto visual)
+                    const intensidad = Math.min(255, Math.abs(z) * 20);
+                    document.body.style.backgroundColor = `rgb(0, ${intensidad/2}, ${intensidad})`;
+
+                    // Analizar respiración cada 10 muestras (~1 seg)
+                    if (bufferZ.length % 10 === 0 && bufferZ.length > 30) {
+                        analizarRespiracion();
+                    }
                 }
             });
         }
 
-        function procesarRespiracion(z) {
-            // Mantener buffer de 150 muestras (aprox 15s a 10Hz)
-            bufferRespiracion.push({ valor: z, tiempo: Date.now() });
-            if (bufferRespiracion.length > 150) bufferRespiracion.shift();
-
-            // Analizar cada ~1 segundo
-            if (bufferRespiracion.length % 10 === 0 && bufferRespiracion.length > 50) {
-                calcularFrenado();
-            }
-        }
-
-        function calcularFrenado() {
+        function analizarRespiracion() {
             const ahora = Date.now();
-            const ventana = bufferRespiracion.filter(d => ahora - d.tiempo < 15000);
+            const ventana = bufferZ.filter(d => ahora - d.tiempo < 15000); // últimos 15 s
             if (ventana.length < 20) return;
 
-            // Detectar picos (respiraciones)
             const valores = ventana.map(d => d.valor);
+            // Detección simple de picos (cambios de signo de la derivada)
             let picos = 0;
             for (let i = 2; i < valores.length - 2; i++) {
                 if (valores[i] > valores[i-1] && valores[i] > valores[i-2] &&
@@ -94,200 +209,230 @@
                     picos++;
                 }
             }
+            const duracionMin = (ahora - ventana[0].tiempo) / 1000 / 60; // minutos
+            rpm = duracionMin > 0 ? picos / duracionMin : 12;
 
-            // Frecuencia respiratoria (respiraciones por minuto)
-            const duracion = (ahora - ventana[0].tiempo) / 1000 / 60; // minutos
-            rpm = duracion > 0 ? picos / duracion : 12;
-
-            // Calcular frenado (0-100%)
+            // Calcular frenado: si rpm > 16 o < 8, aumentar intensidad
             if (rpm > 16) {
                 frenado = Math.min(100, (rpm - 16) * 10);
-            } else if (rpm < 10) {
-                frenado = Math.min(50, (10 - rpm) * 10);
+            } else if (rpm < 8) {
+                frenado = Math.min(50, (8 - rpm) * 10);
             } else {
                 frenado = 0;
             }
 
-            // Actualizar UI
-            respiracionEl.innerText = `RESPIRACIÓN: ${rpm.toFixed(1)} rpm`;
-            frenoEl.innerText = `FRENADO: ${frenado.toFixed(0)}%`;
-
-            // Aplicar frenado en tiempo real
-            if (sistemaActivo) aplicarFrenado();
+            // Aplicar efectos si el sistema está activo
+            if (sistemaActivo) {
+                aplicarFrenado();
+            }
         }
 
-        // ==================== APLICAR FRENADO ====================
+        // ===========================================
+        // FRENADO ARMÓNICO
+        // ===========================================
         function aplicarFrenado() {
-            // Motor (campo magnético)
-            if (motorActivo && frenado > 10) {
-                // Patrón de vibración proporcional al frenado
-                const duracionOn = 20 + frenado; // 20-120 ms
-                const duracionOff = 20;
-                navigator.vibrate([duracionOn, duracionOff]);
-            } else if (motorActivo && frenado <= 10) {
-                // Vibración suave de mantenimiento
-                navigator.vibrate([10, 40]);
+            // Modificar volumen y frecuencia según frenado
+            if (audioActivo && gain && osc) {
+                const volBase = 0.3;
+                gain.gain.value = volBase + (frenado / 100) * 0.5; // hasta 0.8
+
+                // Modulación de frecuencia basada en frenado (solo en modo normal)
+                if (indiceModo === 0) { // modo normal
+                    const desviacion = (frenado / 100) * 20; // hasta 20 Hz de desviación
+                    osc.frequency.value = MODOS[indiceModo].frec + desviacion * Math.sin(Date.now() / 500);
+                }
             }
 
-            // Audio (si está activo)
-            if (audioActivo && oscilador && ganancia) {
-                // Modulación de frecuencia según frenado
-                const mod = 1 + (frenado / 100) * 0.5; // hasta 1.5x
-                oscilador.frequency.value = FREC_BASE * mod;
-
-                // Modulación de volumen
-                const volumenBase = 0.3;
-                ganancia.gain.value = volumenBase + (frenado / 100) * 0.5;
+            // Motor de vibración (campo magnético)
+            if (motorActivo && navigator.vibrate) {
+                if (frenado > 20) {
+                    // Vibración intensa: pulsos largos
+                    navigator.vibrate([30 + frenado, 20]);
+                } else {
+                    // Vibración suave de fondo (pulso Winter)
+                    navigator.vibrate([15, 50]);
+                }
             }
         }
 
-        // ==================== AUDIO ====================
-        function iniciarAudio() {
-            if (!audioActivo) return;
+        // ===========================================
+        // PULSO WINTER (bucle principal)
+        // ===========================================
+        let pulsoInterval = null;
 
-            try {
-                // Crear contexto si no existe
-                if (!audioContext) {
-                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                }
-
-                // Reanudar si está suspendido
-                if (audioContext.state === 'suspended') {
-                    audioContext.resume();
-                }
-
-                // Crear oscilador y ganancia si no existen
-                if (!oscilador) {
-                    oscilador = audioContext.createOscillator();
-                    oscilador.type = 'sine';
-                    oscilador.frequency.value = FREC_BASE;
-
-                    ganancia = audioContext.createGain();
-                    ganancia.gain.value = 0.3;
-
-                    oscilador.connect(ganancia);
-                    ganancia.connect(audioContext.destination);
-                    oscilador.start();
-                }
-
-                audioStatusEl.innerText = 'AUDIO: ACTIVO';
-            } catch (e) {
-                audioStatusEl.innerText = 'AUDIO: ERROR';
-                console.error(e);
-            }
-        }
-
-        function detenerAudio() {
-            if (oscilador) {
-                oscilador.stop();
-                oscilador = null;
-            }
-            if (audioContext) {
-                audioContext.close();
-                audioContext = null;
-            }
-            audioStatusEl.innerText = 'AUDIO: INACTIVO';
-        }
-
-        // ==================== REGISTRO CSV ====================
-        function iniciarRegistro() {
-            if (intervaloSampleo) clearInterval(intervaloSampleo);
-            intervaloSampleo = setInterval(() => {
+        function iniciarPulsoWinter() {
+            if (pulsoInterval) clearInterval(pulsoInterval);
+            pulsoInterval = setInterval(() => {
                 if (!sistemaActivo) return;
-                datos.push({
-                    t: (Date.now() - tiempoInicio) / 1000,
-                    rpm: rpm,
-                    frenado: frenado,
-                    z: ultimoZ
+
+                // Pulso de sonido
+                if (audioActivo && gain && audioCtx) {
+                    const ahora = audioCtx.currentTime;
+                    gain.gain.setValueAtTime(0.02, ahora);
+                    gain.gain.exponentialRampToValueAtTime(0.3, ahora + (PHI/2));
+                    gain.gain.exponentialRampToValueAtTime(0.02, ahora + PHI);
+                }
+
+                // Pulso visual
+                circuloEl.style.transform = "scale(1.5)";
+                setTimeout(() => { circuloEl.style.transform = "scale(1)"; }, (PHI/2) * 1000);
+
+                // Pulso táctil (si motor activo y frenado bajo, para no saturar)
+                if (motorActivo && navigator.vibrate && frenado < 20) {
+                    navigator.vibrate(200);
+                }
+            }, PHI * 1000);
+        }
+
+        // ===========================================
+        // REGISTRO CSV
+        // ===========================================
+        function iniciarRegistro() {
+            if (intervaloRegistro) clearInterval(intervaloRegistro);
+            tiempoInicio = Date.now();
+            intervaloRegistro = setInterval(() => {
+                if (!sistemaActivo) return;
+                datosRegistro.push({
+                    tiempo: ((Date.now() - tiempoInicio) / 1000).toFixed(1),
+                    rpm: rpm.toFixed(1),
+                    frenado: frenado.toFixed(0),
+                    z: ultimoZ.toFixed(3),
+                    modo: MODOS[indiceModo].nombre
                 });
-                contadorEl.innerText = `REGISTROS: ${datos.length}`;
-            }, 1000);
+            }, 2000); // cada 2 segundos
         }
 
         function guardarCSV() {
-            if (datos.length === 0) return alert('No hay datos');
-            let csv = 'tiempo,rpm,frenado,acel_z\n';
-            datos.forEach(d => csv += `${d.t.toFixed(1)},${d.rpm.toFixed(1)},${d.frenado},${d.z.toFixed(3)}\n`);
-            const blob = new Blob([csv], {type: 'text/csv'});
+            if (datosRegistro.length === 0) {
+                alert("No hay datos para guardar.");
+                return;
+            }
+            let csv = "tiempo,rpm,frenado,z,modo\n";
+            datosRegistro.forEach(d => {
+                csv += `${d.tiempo},${d.rpm},${d.frenado},${d.z},${d.modo}\n`;
+            });
+            const blob = new Blob([csv], { type: "text/csv" });
             const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
+            const a = document.createElement("a");
             a.download = `winter_${Date.now()}.csv`;
             a.href = url;
             a.click();
+            URL.revokeObjectURL(url);
+            alert("CSV guardado.");
         }
 
-        // ==================== CONTROL PRINCIPAL ====================
-        function iniciarSistema() {
-            if (sistemaActivo) return;
-            sistemaActivo = true;
-            tiempoInicio = Date.now();
+        // ===========================================
+        // CONTROL DEL SISTEMA
+        // ===========================================
+        async function toggleSistema() {
+            if (sistemaActivo) {
+                // DETENER
+                sistemaActivo = false;
+                estadoEl.innerText = "SISTEMA INACTIVO";
+                if (pulsoInterval) clearInterval(pulsoInterval);
+                if (intervaloRegistro) clearInterval(intervaloRegistro);
+                stopAudio();
+                if (wakeLock) {
+                    wakeLock.release();
+                    wakeLock = null;
+                }
+                navigator.vibrate(0);
+                document.body.style.backgroundColor = "#000";
+            } else {
+                // INICIAR
+                sistemaActivo = true;
+                estadoEl.innerText = "SISTEMA ACTIVO";
 
-            // Activar audio
-            if (audioActivo) iniciarAudio();
+                // Wake lock
+                if ('wakeLock' in navigator) {
+                    try {
+                        wakeLock = await navigator.wakeLock.request('screen');
+                    } catch (e) {}
+                }
 
-            // Activar wake lock
-            if (navigator.wakeLock) {
-                navigator.wakeLock.request('screen').catch(() => {});
+                // Iniciar audio si está activo
+                if (audioActivo) initAudio();
+
+                // Iniciar pulso Winter
+                iniciarPulsoWinter();
+
+                // Iniciar registro
+                iniciarRegistro();
+            }
+        }
+
+        // ===========================================
+        // CAMBIO DE MODO
+        // ===========================================
+        function cambiarModo() {
+            indiceModo = (indiceModo + 1) % MODOS.length;
+            const modo = MODOS[indiceModo];
+            modoEl.innerText = `MODO: ${modo.nombre} (${modo.frec} Hz) - ${modo.desc}`;
+
+            // Actualizar frecuencia del oscilador si existe
+            if (osc) {
+                osc.frequency.value = modo.frec;
             }
 
-            iniciarRegistro();
-            estadoEl.innerText = 'SISTEMA: ACTIVO';
+            // Ajustar motor según modo
+            motorActivo = modo.motor;
         }
 
-        function detenerSistema() {
-            sistemaActivo = false;
-            detenerAudio();
-            navigator.vibrate(0);
-            if (intervaloSampleo) clearInterval(intervaloSampleo);
-            estadoEl.innerText = 'SISTEMA: INACTIVO';
-        }
-
-        // ==================== TECLADO ====================
+        // ===========================================
+        // EVENTOS DE TECLADO
+        // ===========================================
         document.addEventListener('keydown', (e) => {
             const tecla = e.key.toLowerCase();
-
             switch (tecla) {
                 case 'enter':
-                    if (sistemaActivo) detenerSistema();
-                    else iniciarSistema();
+                    toggleSistema();
                     break;
-
+                case 'm':
+                    cambiarModo();
+                    break;
                 case 'v':
                     motorActivo = !motorActivo;
                     if (!motorActivo) navigator.vibrate(0);
+                    infoEl.innerText = `Motor: ${motorActivo ? 'ON' : 'OFF'} | Audio: ${audioActivo ? 'ON' : 'OFF'}`;
                     break;
-
                 case 'a':
                     audioActivo = !audioActivo;
                     if (sistemaActivo) {
-                        if (audioActivo) iniciarAudio();
-                        else detenerAudio();
+                        if (audioActivo) initAudio();
+                        else stopAudio();
                     }
+                    infoEl.innerText = `Motor: ${motorActivo ? 'ON' : 'OFF'} | Audio: ${audioActivo ? 'ON' : 'OFF'}`;
                     break;
-
                 case '+':
                 case '=':
-                    if (ganancia) ganancia.gain.value = Math.min(1, ganancia.gain.value + 0.1);
+                    if (gain) {
+                        let vol = gain.gain.value + 0.1;
+                        if (vol > 1) vol = 1;
+                        gain.gain.value = vol;
+                    }
                     break;
-
                 case '-':
-                    if (ganancia) ganancia.gain.value = Math.max(0, ganancia.gain.value - 0.1);
+                    if (gain) {
+                        let vol = gain.gain.value - 0.1;
+                        if (vol < 0) vol = 0;
+                        gain.gain.value = vol;
+                    }
                     break;
-
                 case 's':
                     guardarCSV();
                     break;
-
                 case 'r':
-                    // Reiniciar audio
-                    detenerAudio();
-                    if (sistemaActivo && audioActivo) iniciarAudio();
+                    // reiniciar audio
+                    if (sistemaActivo && audioActivo) {
+                        stopAudio();
+                        initAudio();
+                    }
                     break;
             }
         });
 
-        // ==================== INICIALIZACIÓN ====================
-        console.log('Sistema listo. Presiona ENTER para iniciar.');
+        // Inicializar modo en pantalla
+        cambiarModo();
     </script>
 </body>
 </html>
